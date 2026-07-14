@@ -1,0 +1,39 @@
+# Python virtual environments
+backend/venv/
+venv/
+ENV/
+env/
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Node dependencies
+frontend/node_modules/
+node_modules/
+
+# Frontend build outputs
+frontend/dist/
+dist/
+
+# Local databases and SQLite
+*.db
+backend/resumeiq.db
+
+# User uploads and storage folders
+uploads/
+backend/uploads/
+
+# Environment configurations and secrets
+.env
+backend/.env
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
