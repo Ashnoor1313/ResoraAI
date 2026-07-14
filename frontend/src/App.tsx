@@ -40,7 +40,7 @@ export default function App() {
   const [backendMockStatus, setBackendMockStatus] = useState(true);
 
   useEffect(() => {
-    fetch(`${BACKEND_URL}/`)
+    fetch(`${BACKEND_URL}/api/v1/status`)
       .then(res => res.json())
       .then(data => setBackendMockStatus(data.mock_mode))
       .catch(err => console.error("Backend offline.", err));

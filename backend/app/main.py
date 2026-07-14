@@ -590,6 +590,10 @@ def read_root():
         return FileResponse(index_path)
     return {"status": "healthy", "service": settings.PROJECT_NAME, "mock_mode": settings.GEMINI_API_KEY == ""}
 
+@app.get("/api/v1/status")
+def get_status():
+    return {"status": "healthy", "service": settings.PROJECT_NAME, "mock_mode": settings.GEMINI_API_KEY == ""}
+
 # MODULE 1 & 2: Resume Upload & Parsing Engine
 # MODULE 3: ATS Parsing Simulator
 # MODULE 4: ATS Compatibility Score
