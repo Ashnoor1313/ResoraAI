@@ -580,7 +580,10 @@ def delete_account(
 
 @app.get("/")
 def read_root():
-    frontend_dist = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist"))
+    # Try container path first, fallback to local dev path
+    frontend_dist = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "frontend", "dist"))
+    if not os.path.exists(frontend_dist):
+        frontend_dist = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist"))
     index_path = os.path.join(frontend_dist, "index.html")
     if os.path.exists(index_path):
         from fastapi.responses import FileResponse
@@ -1557,7 +1560,11 @@ def rebuild_resume_pdf(
     )
 
 # Serve frontend SPA built files in production if dist folder is present
-frontend_dist = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist"))
+# Try container path first, fallback to local dev path
+frontend_dist = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "frontend", "dist"))
+if not os.path.exists(frontend_dist):
+    frontend_dist = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist"))
+
 if os.path.exists(frontend_dist):
     from fastapi.staticfiles import StaticFiles
     from fastapi.responses import FileResponse
