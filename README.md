@@ -1,4 +1,4 @@
-# 🚀 ResumeIQ AI – Explainable Resume Intelligence Platform
+# 🚀 ResoraAI – Explainable Resume Intelligence Platform
 
 > **Bypass the "Black Box" of Applicant Tracking Systems (ATS).** Get zero-variance scoring, parser visualization, and AI-powered recruiter feedback in one unified, transparent dashboard.
 
@@ -11,7 +11,7 @@ Applying for jobs in the modern market is a game of statistics, but the systems 
 2. **Vague, Arbitrary Scores**: Existing tools give a single "score" without explaining the math or showing how to improve.
 3. **Disconnected Critiques**: AI critiques are often generic, lacking the specific lenses of recruiters from top firms (like Google's focus on metric impact or Amazon's focus on leadership principles).
 
-**ResumeIQ AI** bridges this gap by decoupling deterministic ATS parsing simulation from advanced AI critiquing. It shows you exactly what the machines see, scores you on a fixed and explainable index, and guides you through iterative improvements with custom recruiter personas.
+**ResoraAI** bridges this gap by decoupling deterministic ATS parsing simulation from advanced AI critiquing. It shows you exactly what the machines see, scores you on a fixed and explainable index, and guides you through iterative improvements with custom recruiter personas.
 
 ---
 
@@ -76,7 +76,7 @@ No guessing. Scores are calculated using transparent, mathematically weighted me
 ## 📂 Project Directory Structure
 
 ```text
-ResumeIQ/
+ResoraAI/
 ├── backend/
 │   ├── app/
 │   │   ├── core/
@@ -106,7 +106,7 @@ ResumeIQ/
     │   │   ├── JdMatch.tsx         # Job description paste and keyword search
     │   │   ├── FaangReadiness.tsx  # Company readiness sub-sliders
     │   │   ├── RecruiterReview.tsx # Avatar reviews and AI bullet rewriter
-    │   │   ├── AiAssistant.tsx     # Direct chat with ResumeIQ AI
+    │   │   ├── AiAssistant.tsx     # Direct chat with ResoraAI
     │   │   ├── CareerSuite.tsx     # Gateway to Cover Letters, Portfolios, Networking
     │   │   ├── CoverLetterTailor.tsx # Custom cover letter generation
     │   │   ├── LinkedinAudit.tsx   # LinkedIn profile audit dashboard
@@ -169,7 +169,7 @@ npm run dev
 
 ## 🔑 AI Engine Configuration
 
-ResumeIQ AI supports a dual configuration for intelligence endpoints:
+ResoraAI supports a dual configuration for intelligence endpoints:
 1. **Mock Sandbox Fallback**: Works offline out-of-the-box using local parser rules.
 2. **Gemini Live Engine**:
    - Create a free Gemini API Key at [Google AI Studio](https://aistudio.google.com).
