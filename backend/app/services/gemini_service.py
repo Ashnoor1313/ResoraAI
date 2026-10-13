@@ -7,7 +7,7 @@ if "SSL_CERT_FILE" in os.environ and not os.path.exists(os.environ["SSL_CERT_FIL
 
 import json
 import re
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional, Union, Tuple
 from google import genai
 from google.genai import types
 from app.core.config import settings

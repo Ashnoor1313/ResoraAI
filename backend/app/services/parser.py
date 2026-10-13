@@ -1,6 +1,9 @@
 import re
 import io
-import fitz  # PyMuPDF
+try:
+    import pymupdf as fitz
+except ImportError:
+    import fitz
 import docx
 from typing import Dict, List, Any
 

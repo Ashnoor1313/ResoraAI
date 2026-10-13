@@ -1,5 +1,8 @@
 import re
-import fitz  # PyMuPDF
+try:
+    import pymupdf as fitz
+except ImportError:
+    import fitz
 import docx
 import io
 import json

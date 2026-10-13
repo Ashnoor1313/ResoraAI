@@ -233,7 +233,10 @@ def render_rdom_to_pdf_bytes(rdom: Dict[str, Any], original_pdf_path: str = None
     Otherwise, it falls back to a clean ReportLab layout generator.
     """
     if original_pdf_path and original_pdf_path.lower().endswith(".pdf"):
-        import fitz
+        try:
+            import pymupdf as fitz
+        except ImportError:
+            import fitz
         try:
             doc = fitz.open(original_pdf_path)
             
