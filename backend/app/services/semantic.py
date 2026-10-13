@@ -107,20 +107,36 @@ def check_semantic_match(missing_skill: str, resume_skills: List[str]) -> str:
 
 def match_job_description(resume_text: str, resume_skills: List[str], jd_text: str) -> Dict[str, Any]:
     """Analyzes a job description against the resume text to calculate match details."""
+    clean_jd = (jd_text or "").strip()
+    if not clean_jd:
+        return {
+            "match_score": 0.0,
+            "matching_skills": [],
+            "missing_skills": [],
+            "semantic_matches": []
+        }
+
     # 1. Extract skills from Job Description
-    jd_skills = extract_skills_from_text(jd_text)
+    jd_skills = extract_skills_from_text(clean_jd)
     
     if not jd_skills:
-        # Fallback keyword extraction: take high-frequency terms from JD that are in dictionary
-        # If still empty, grab any capitalized sequences
-        jd_skills = ["Communication", "Leadership"]
+        # No skills detected from the JD text
+        # Compute pure text-based similarity without injecting artificial keywords
+        tfidf1, tfidf2 = build_tfidf_vector(resume_text or "", clean_jd)
+        sim_score = round(calculate_cosine_similarity(tfidf1, tfidf2) * 100.0, 1)
+        return {
+            "match_score": sim_score,
+            "matching_skills": [],
+            "missing_skills": [],
+            "semantic_matches": []
+        }
         
     # 2. Categorize skill matches
     matching_skills = []
     missing_skills = []
     semantic_matches = [] # [{"jd_skill": "ReactJS", "resume_skill": "React"}]
     
-    resume_skills_lower = [s.lower() for s in resume_skills]
+    resume_skills_lower = [s.lower() for s in (resume_skills or [])]
     
     for jd_skill in jd_skills:
         jd_skill_lower = jd_skill.lower()
@@ -128,7 +144,7 @@ def match_job_description(resume_text: str, resume_skills: List[str], jd_text: s
             matching_skills.append(jd_skill)
         else:
             # Check if it has a semantic close match
-            equiv = check_semantic_match(jd_skill, resume_skills)
+            equiv = check_semantic_match(jd_skill, resume_skills or [])
             if equiv:
                 semantic_matches.append({
                     "jd_skill": jd_skill,
@@ -140,18 +156,17 @@ def match_job_description(resume_text: str, resume_skills: List[str], jd_text: s
                 missing_skills.append(jd_skill)
                 
     # 3. Calculate text-based semantic similarity (TF-IDF Cosine Similarity)
-    tfidf1, tfidf2 = build_tfidf_vector(resume_text, jd_text)
+    tfidf1, tfidf2 = build_tfidf_vector(resume_text or "", clean_jd)
     similarity_score = calculate_cosine_similarity(tfidf1, tfidf2)
     
     # 4. Compute composite Match Score (0 - 100)
     # 60% keyword match rate, 40% semantic cosine similarity
-    keyword_match_rate = len(matching_skills) / len(jd_skills) if jd_skills else 1.0
-    match_score = (keyword_match_rate * 60.0) + (similarity_score * 40.0)
-    # Clip between 0 and 100
-    match_score = max(0.0, min(100.0, float(match_score)))
+    keyword_match_rate = len(matching_skills) / len(jd_skills) if jd_skills else 0.0
+    raw_score = (keyword_match_rate * 60.0) + (similarity_score * 40.0)
+    match_score = int(round(max(0.0, min(100.0, float(raw_score)))))
     
     return {
-        "match_score": int(round(match_score)),
+        "match_score": match_score,
         "missing_skills": missing_skills,
         "matching_skills": [m for m in matching_skills if m not in [s["jd_skill"] for s in semantic_matches]],
         "semantic_matches": semantic_matches,

@@ -79,11 +79,11 @@ export default function CareerSuite({
       
       {/* Header Banner */}
       <div className="glass-card p-5 flex items-center gap-3.5">
-        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
-          <Briefcase className="w-5 h-5 text-indigo-400" />
+        <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 flex items-center justify-center">
+          <Briefcase className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
         </div>
         <div>
-          <h2 className="text-base font-extrabold text-white tracking-tight">AI Career Suite</h2>
+          <h2 className="text-base font-extrabold text-slate-800 dark:text-white tracking-tight">AI Career Suite</h2>
           <p className="text-xs text-slate-500 font-medium mt-0.5">Use advanced AI engines to tailor your job search materials and prepare for interviews.</p>
         </div>
       </div>
@@ -99,15 +99,15 @@ export default function CareerSuite({
               onClick={() => setActiveTab(tab.id as SubTab)}
               className={`flex flex-col gap-2.5 p-4 rounded-xl text-left border transition-all duration-200 cursor-pointer ${
                 isActive
-                  ? 'bg-indigo-500/10 border-indigo-500 shadow-lg shadow-indigo-500/5 text-white'
-                  : 'bg-[#0b0f19] hover:bg-[#0f1525] border-[#1e2740] hover:border-slate-700 text-slate-300 hover:text-white'
+                  ? 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-500 shadow-md shadow-indigo-500/10 text-indigo-900 dark:text-white'
+                  : 'bg-white dark:bg-[#0b0f19] hover:bg-slate-50 dark:hover:bg-[#0f1525] border-slate-200 dark:border-[#1e2740] hover:border-slate-300 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white shadow-xs'
               }`}
             >
               <div className="flex items-center gap-2">
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${
                   isActive
-                    ? 'bg-indigo-500 text-white border-indigo-400/20 shadow-md shadow-indigo-500/20'
-                    : 'bg-[#0f1525] text-slate-400 border-slate-800'
+                    ? 'bg-indigo-600 dark:bg-indigo-500 text-white border-indigo-400/20 shadow-md shadow-indigo-500/20'
+                    : 'bg-slate-100 dark:bg-[#0f1525] text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-800'
                 }`}>
                   <Icon className="w-4 h-4" />
                 </div>
@@ -126,8 +126,8 @@ export default function CareerSuite({
       <div className="flex-1">
         {activeTabDetails?.needsResume && !resumeId ? (
           <div className="glass-card p-10 text-center flex flex-col items-center gap-3">
-            <Briefcase className="w-10 h-10 text-slate-600" />
-            <h3 className="font-semibold text-sm text-slate-300">Resume Context Required</h3>
+            <Briefcase className="w-10 h-10 text-slate-400 dark:text-slate-600" />
+            <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-300">Resume Context Required</h3>
             <p className="text-xs text-slate-500 max-w-xs leading-relaxed">
               Please upload a resume first under the <b>My Resumes</b> tab to use this tool with your professional background details.
             </p>
@@ -166,6 +166,8 @@ export default function CareerSuite({
                 backendUrl={backendUrl}
                 token={token}
                 isMockMode={isMockMode}
+                resumeId={resumeId}
+                initialTargetRole={targetRole}
               />
             )}
           </>

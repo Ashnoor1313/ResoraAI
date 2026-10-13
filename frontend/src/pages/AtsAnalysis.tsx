@@ -17,9 +17,11 @@ import {
   Award,
   Building,
   Activity,
-  Target
+  Target,
+  FileDown
 } from 'lucide-react';
 import JdMatch from './JdMatch';
+import ResumeRebuilder from '../components/ResumeRebuilder';
 
 
 interface AtsAnalysisProps {
@@ -174,7 +176,7 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
     keyword_analysis
   } = reportData;
 
-  const [activeTab, setActiveTab] = useState<'health' | 'recommendations' | 'companies' | 'optimizer' | 'jd'>('health');
+  const [activeTab, setActiveTab] = useState<'health' | 'recommendations' | 'companies' | 'optimizer' | 'jd' | 'rebuilder'>('health');
 
   
   // Company view state
@@ -343,7 +345,7 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
           <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-2xl" />
           <div className="relative w-36 h-36 flex items-center justify-center">
             <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="42" stroke="#1e2740" strokeWidth="6" fill="transparent" />
+              <circle cx="50" cy="50" r="42" stroke="currentColor" className="text-slate-200 dark:text-[#1e2740]" strokeWidth="6" fill="transparent" />
               <circle 
                 cx="50" cy="50" r="42" 
                 stroke={getScoreStroke(score_overall)}
@@ -363,9 +365,9 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
 
           <div className="mt-4 text-center space-y-1.5 z-10">
             <span className={`inline-block px-2.5 py-1 rounded-md text-xs font-semibold ${
-              score_overall >= 80 ? 'bg-emerald-500/10 text-emerald-400' 
-              : score_overall >= 60 ? 'bg-amber-500/10 text-amber-400'
-              : 'bg-red-500/10 text-red-400'
+              score_overall >= 80 ? 'bg-emerald-500/10 text-emerald-500 dark:text-emerald-400' 
+              : score_overall >= 60 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+              : 'bg-red-500/10 text-red-500 dark:text-red-400'
             }`}>
               {benchmarking.rank_tier}
             </span>
@@ -380,31 +382,40 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
           <div className="absolute top-0 right-0 w-32 h-32 bg-violet-500/5 rounded-full blur-2xl" />
           <div className="z-10">
             <div className="flex justify-between items-start mb-2">
-              <h3 className="font-semibold text-sm text-slate-200">Explainable Resume Intelligence</h3>
-              <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold">
-                v2 platform active
+              <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-200">Explainable Resume Intelligence</h3>
+              <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-transparent px-2.5 py-0.5 rounded-full uppercase tracking-wider font-bold">
+                Platform Active
               </span>
             </div>
-            <p className="text-xs text-slate-400 leading-relaxed">
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
               {benchmarking.summary}
             </p>
           </div>
 
-          <div className="mt-5 p-3 bg-[#0f1525]/60 border border-[#1e2740] rounded-xl flex items-center justify-between text-xs z-10">
-            <span className="text-slate-500">Industry Track: <strong className="text-slate-300 font-medium">{target_role}</strong> ({reportData.experience_level || 'Entry Level'})</span>
-            <a href="#breakdown-detail" className="text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1 transition-colors">
-              View Action Plan <ChevronRight className="w-3.5 h-3.5" />
-            </a>
+          <div className="mt-5 p-3 bg-slate-50 dark:bg-[#0f1525]/60 border border-slate-200 dark:border-[#1e2740] rounded-xl flex items-center justify-between text-xs z-10">
+            <span className="text-slate-600 dark:text-slate-500">Industry Track: <strong className="text-slate-800 dark:text-slate-300 font-medium">{target_role}</strong> ({reportData.experience_level || 'Entry Level'})</span>
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => setActiveTab('rebuilder')}
+                className="px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 font-semibold flex items-center gap-1.5 transition-colors text-[11px] cursor-pointer"
+              >
+                <FileDown className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
+                Rebuild ATS PDF
+              </button>
+              <a href="#breakdown-detail" className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium flex items-center gap-1 transition-colors">
+                View Action Plan <ChevronRight className="w-3.5 h-3.5" />
+              </a>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Tabs Header */}
-      <div className="flex border-b border-[#1e2740] gap-4" id="breakdown-detail">
+      <div className="flex border-b border-slate-200 dark:border-[#1e2740] gap-4" id="breakdown-detail">
         <button
           onClick={() => setActiveTab('health')}
           className={`pb-3 text-xs font-semibold tracking-wider uppercase transition-all relative ${
-            activeTab === 'health' ? 'text-indigo-400 font-extrabold' : 'text-slate-400 hover:text-slate-100'
+            activeTab === 'health' ? 'text-indigo-600 dark:text-indigo-400 font-extrabold' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100'
           }`}
         >
           Health Breakdown
@@ -413,12 +424,12 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
         <button
           onClick={() => setActiveTab('recommendations')}
           className={`pb-3 text-xs font-semibold tracking-wider uppercase transition-all relative flex items-center gap-1.5 ${
-            activeTab === 'recommendations' ? 'text-indigo-400 font-extrabold' : 'text-slate-400 hover:text-slate-100'
+            activeTab === 'recommendations' ? 'text-indigo-600 dark:text-indigo-400 font-extrabold' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100'
           }`}
         >
           Action Plan ({recommendations.length})
           {recommendations.length > 0 && (
-            <span className="bg-indigo-500/10 text-indigo-400 text-[9px] px-1.5 py-0.2 rounded-full font-bold">
+            <span className="bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[9px] px-1.5 py-0.2 rounded-full font-bold">
               {recommendations.filter(r => r.severity === 'critical').length} Critical
             </span>
           )}
@@ -427,7 +438,7 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
         <button
           onClick={() => setActiveTab('companies')}
           className={`pb-3 text-xs font-semibold tracking-wider uppercase transition-all relative ${
-            activeTab === 'companies' ? 'text-indigo-400 font-extrabold' : 'text-slate-400 hover:text-slate-100'
+            activeTab === 'companies' ? 'text-indigo-600 dark:text-indigo-400 font-extrabold' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100'
           }`}
         >
           Company Intelligence
@@ -436,23 +447,33 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
         <button
           onClick={() => setActiveTab('optimizer')}
           className={`pb-3 text-xs font-semibold tracking-wider uppercase transition-all relative flex items-center gap-1 ${
-            activeTab === 'optimizer' ? 'text-indigo-400 font-extrabold' : 'text-slate-400 hover:text-slate-100'
+            activeTab === 'optimizer' ? 'text-indigo-600 dark:text-indigo-400 font-extrabold' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100'
           }`}
         >
-          Bullet Optimizer <Sparkles className="w-3 h-3 text-indigo-400" />
+          Bullet Optimizer <Sparkles className="w-3 h-3 text-indigo-500 dark:text-indigo-400" />
           {activeTab === 'optimizer' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500" />}
         </button>
         <button
           onClick={() => setActiveTab('jd')}
           className={`pb-3 text-xs font-semibold tracking-wider uppercase transition-all relative flex items-center gap-1.5 ${
-            activeTab === 'jd' ? 'text-indigo-400 font-extrabold' : 'text-slate-400 hover:text-slate-100'
+            activeTab === 'jd' ? 'text-indigo-600 dark:text-indigo-400 font-extrabold' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100'
           }`}
         >
-          Job Description Match <Target className="w-3.5 h-3.5 text-indigo-400" />
+          Job Description Match <Target className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
           {activeTab === 'jd' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500" />}
         </button>
-
-
+        <button
+          onClick={() => setActiveTab('rebuilder')}
+          className={`pb-3 text-xs font-semibold tracking-wider uppercase transition-all relative flex items-center gap-1.5 ${
+            activeTab === 'rebuilder' ? 'text-indigo-600 dark:text-indigo-400 font-extrabold' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100'
+          }`}
+        >
+          ATS Rebuilder & PDF <FileDown className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
+          <span className="bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[9px] px-1.5 py-0.2 rounded-full font-bold">
+            Live Reflow
+          </span>
+          {activeTab === 'rebuilder' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500" />}
+        </button>
       </div>
 
       {/* Tab Contents */}
@@ -470,33 +491,33 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
                 <div key={item.key} className="glass-card p-5 flex flex-col justify-between relative overflow-hidden group hover:border-[#1e2740] transition-all">
                   <div>
                     <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs font-semibold text-slate-300">{item.name}</span>
+                      <span className="text-xs font-semibold text-slate-800 dark:text-slate-300">{item.name}</span>
                       <span className={`text-lg font-extrabold ${getScoreColor(scoreVal)}`}>{scoreVal}%</span>
                     </div>
                     
-                    <p className="text-[11px] text-slate-500 leading-relaxed mb-3">
+                    <p className="text-[11px] text-slate-600 dark:text-slate-500 leading-relaxed mb-3">
                       {whyText}
                     </p>
                   </div>
 
                   <div className="space-y-3">
-                    <div className="h-1 bg-[#1e2740] rounded-full overflow-hidden">
+                    <div className="h-1.5 bg-slate-200 dark:bg-[#1e2740] rounded-full overflow-hidden">
                       <div className={`h-full ${item.color} rounded-full transition-all duration-700`} style={{ width: `${scoreVal}%` }} />
                     </div>
 
                     {issues.length > 0 ? (
-                      <div className="text-[10px] text-amber-500/80 bg-amber-500/5 p-2 rounded border border-amber-500/10">
-                        <strong>Gaps:</strong> {issues.join(', ')}
+                      <div className="text-[10px] text-amber-800 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/5 p-2 rounded-lg border border-amber-200 dark:border-amber-500/10">
+                        <strong className="font-bold">Gaps:</strong> {issues.join(', ')}
                       </div>
                     ) : (
-                      <div className="text-[10px] text-emerald-400 bg-emerald-500/5 p-1.5 rounded flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3 shrink-0" />
-                        <span>Fully aligned</span>
+                      <div className="text-[10px] text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/5 p-1.5 rounded-lg border border-emerald-200 dark:border-transparent flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                        <span className="font-semibold">Fully aligned</span>
                       </div>
                     )}
 
                     {estImprovement > 0 && (
-                      <div className="text-[9px] text-indigo-400 font-semibold uppercase tracking-wider">
+                      <div className="text-[9px] text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-wider">
                         Improvement Potential: +{estImprovement} score boost
                       </div>
                     )}
@@ -509,26 +530,26 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
           {/* Simple warnings display fallback */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-4">
             <div className="glass-card p-5">
-              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[#1e2740]">
-                <AlertCircle className="w-4 h-4 text-red-400" />
-                <h3 className="font-medium text-sm text-slate-300">Formatting Warnings ({formatting_issues.warnings.length})</h3>
+              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-200 dark:border-[#1e2740]">
+                <AlertCircle className="w-4 h-4 text-red-500 dark:text-red-400" />
+                <h3 className="font-medium text-sm text-slate-800 dark:text-slate-300">Formatting Warnings ({formatting_issues.warnings.length})</h3>
               </div>
               {formatting_issues.warnings.length > 0 ? (
                 <div className="space-y-3">
                   {formatting_issues.warnings.map((w, idx) => (
                     <div key={idx} className="flex gap-2.5 text-xs">
-                      <TrendingDown className="w-3.5 h-3.5 text-red-400 shrink-0 mt-0.5" />
+                      <TrendingDown className="w-3.5 h-3.5 text-red-500 dark:text-red-400 shrink-0 mt-0.5" />
                       <div>
-                        <p className="text-slate-300 font-medium">{w}</p>
+                        <p className="text-slate-800 dark:text-slate-300 font-medium">{w}</p>
                         {formatting_issues.suggestions[idx] && (
-                          <p className="text-slate-500 mt-0.5">{formatting_issues.suggestions[idx]}</p>
+                          <p className="text-slate-600 dark:text-slate-500 mt-0.5">{formatting_issues.suggestions[idx]}</p>
                         )}
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-emerald-400 flex items-center gap-1.5 font-medium">
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 font-medium">
                   <CheckCircle2 className="w-4 h-4" />
                   No formatting issues detected.
                 </p>
@@ -536,15 +557,15 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
             </div>
 
             <div className="glass-card p-5">
-              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[#1e2740]">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <h3 className="font-medium text-sm text-slate-300">Strengths ({formatting_issues.strengths.length})</h3>
+              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-200 dark:border-[#1e2740]">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
+                <h3 className="font-medium text-sm text-slate-800 dark:text-slate-300">Strengths ({formatting_issues.strengths.length})</h3>
               </div>
               {formatting_issues.strengths.length > 0 ? (
                 <ul className="space-y-2.5">
                   {formatting_issues.strengths.map((str, idx) => (
-                    <li key={idx} className="flex items-start gap-2 text-xs text-slate-400">
-                      <TrendingUp className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                    <li key={idx} className="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-400">
+                      <TrendingUp className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400 shrink-0 mt-0.5" />
                       <span>{str}</span>
                     </li>
                   ))}
@@ -571,49 +592,49 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
                   key={idx} 
                   className={`p-5 rounded-xl border relative overflow-hidden flex flex-col gap-2 ${
                     rec.severity === 'critical' 
-                      ? 'bg-red-500/5 border-red-500/10 hover:border-red-500/25' 
+                      ? 'bg-red-500/5 border-red-500/20 hover:border-red-500/30' 
                       : rec.severity === 'warning' 
-                      ? 'bg-amber-500/5 border-amber-500/10 hover:border-amber-500/25' 
-                      : 'bg-slate-500/5 border-[#1e2740] hover:border-slate-800'
+                      ? 'bg-amber-500/5 border-amber-500/20 hover:border-amber-500/30' 
+                      : 'bg-slate-50 dark:bg-slate-500/5 border-slate-200 dark:border-[#1e2740] hover:border-slate-300 dark:hover:border-slate-800'
                   }`}
                 >
                   <div className="flex flex-wrap justify-between items-center gap-2">
                     <div className="flex items-center gap-2">
                       <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
                         rec.severity === 'critical' 
-                          ? 'bg-red-500/10 text-red-400' 
+                          ? 'bg-red-500/10 text-red-600 dark:text-red-400' 
                           : rec.severity === 'warning' 
-                          ? 'bg-amber-500/10 text-amber-400' 
-                          : 'bg-indigo-500/10 text-indigo-400'
+                          ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400' 
+                          : 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
                       }`}>
                         {rec.severity}
                       </span>
-                      <span className="text-[10px] font-semibold text-slate-500">
+                      <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
                         Category: {rec.category}
                       </span>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] bg-slate-900 text-slate-400 px-2 py-0.5 rounded">
+                      <span className="text-[10px] bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-transparent px-2 py-0.5 rounded">
                         Priority: {rec.priority}
                       </span>
-                      <span className="text-[10px] bg-indigo-500/10 text-indigo-400 font-bold px-2 py-0.5 rounded">
+                      <span className="text-[10px] bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-bold px-2 py-0.5 rounded border border-indigo-100 dark:border-transparent">
                         +{rec.expected_impact} Score Boost
                       </span>
                     </div>
                   </div>
 
-                  <h5 className="font-bold text-xs text-slate-200 mt-1">
+                  <h5 className="font-bold text-xs text-slate-800 dark:text-slate-200 mt-1">
                     {rec.problem}
                   </h5>
 
-                  <p className="text-[11px] text-slate-400 leading-relaxed">
-                    <strong className="text-slate-500 font-semibold">Reason:</strong> {rec.reason}
+                  <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                    <strong className="text-slate-700 dark:text-slate-500 font-semibold">Reason:</strong> {rec.reason}
                   </p>
 
-                  <div className="mt-2 p-3 bg-slate-950/40 rounded-lg border border-slate-900 text-[11px]">
-                    <strong className="text-indigo-400 block mb-1">Suggested Fix:</strong>
-                    <span className="text-slate-300 leading-relaxed">{rec.suggested_fix}</span>
+                  <div className="mt-2 p-3 bg-slate-100 dark:bg-slate-950/40 rounded-lg border border-slate-200 dark:border-slate-900 text-[11px]">
+                    <strong className="text-indigo-600 dark:text-indigo-400 block mb-1">Suggested Fix:</strong>
+                    <span className="text-slate-700 dark:text-slate-300 leading-relaxed">{rec.suggested_fix}</span>
                   </div>
                 </div>
               ))}
@@ -634,10 +655,10 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
         <div className="flex flex-col gap-4 animate-fade-in text-left">
           
           {/* Company Selector Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0f1525]/30 border border-[#1e2740] rounded-2xl p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 dark:bg-[#0f1525]/30 border border-slate-200 dark:border-[#1e2740] rounded-2xl p-4">
             <div>
-              <h4 className="text-sm font-bold text-slate-200">Company Intelligence</h4>
-              <p className="text-xs text-slate-500">Select a target company to inspect hiring alignment and requirements.</p>
+              <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">Company Intelligence</h4>
+              <p className="text-xs text-slate-600 dark:text-slate-500">Select a target company to inspect hiring alignment and requirements.</p>
             </div>
             
             {/* Custom Dropdown Selector */}
@@ -645,17 +666,17 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
               <button
                 type="button"
                 onClick={() => setIsCompanyDropdownOpen(!isCompanyDropdownOpen)}
-                className="w-full bg-[#0f1525] border border-[#1e2740] rounded-xl px-4 py-2.5 text-xs font-semibold focus:outline-none focus:border-indigo-500 text-slate-200 flex justify-between items-center transition-all cursor-pointer shadow-sm hover:bg-[#0f1525]/80 active:scale-[0.99]"
+                className="w-full bg-white dark:bg-[#0f1525] border border-slate-200 dark:border-[#1e2740] rounded-xl px-4 py-2.5 text-xs font-semibold focus:outline-none focus:border-indigo-500 text-slate-800 dark:text-slate-200 flex justify-between items-center transition-all cursor-pointer shadow-sm hover:bg-slate-50 dark:hover:bg-[#0f1525]/80 active:scale-[0.99]"
               >
                 <div className="flex items-center gap-2">
-                  <Building className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                  <Building className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 shrink-0" />
                   <span>{company_intelligence[selectedCompany]?.company_name || 'Select Company'}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`text-[11px] font-bold ${
-                    company_intelligence[selectedCompany]?.alignment_score >= 80 ? 'text-emerald-400' 
-                    : company_intelligence[selectedCompany]?.alignment_score >= 60 ? 'text-amber-400' 
-                    : 'text-red-400'
+                    company_intelligence[selectedCompany]?.alignment_score >= 80 ? 'text-emerald-600 dark:text-emerald-400' 
+                    : company_intelligence[selectedCompany]?.alignment_score >= 60 ? 'text-amber-600 dark:text-amber-400' 
+                    : 'text-red-600 dark:text-red-400'
                   }`}>
                     {company_intelligence[selectedCompany]?.alignment_score || 0}% Match
                   </span>
@@ -664,7 +685,7 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
               </button>
 
               {isCompanyDropdownOpen && (
-                <div className="absolute top-full right-0 z-50 mt-1.5 w-full bg-[#0d1222]/95 backdrop-blur-md border border-[#1e2740] rounded-xl shadow-2xl overflow-hidden animate-fade-in max-h-60 overflow-y-auto">
+                <div className="absolute top-full right-0 z-50 mt-1.5 w-full bg-white dark:bg-[#0d1222]/95 backdrop-blur-md border border-slate-200 dark:border-[#1e2740] rounded-xl shadow-2xl overflow-hidden animate-fade-in max-h-60 overflow-y-auto">
                   <div className="p-1 space-y-0.5">
                     {Object.keys(company_intelligence).map((key) => {
                       const comp = company_intelligence[key];
@@ -679,8 +700,8 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
                           }}
                           className={`w-full text-left px-3 py-2 text-xs rounded-lg flex items-center justify-between transition-all cursor-pointer ${
                             isSel
-                              ? 'bg-indigo-500/20 text-white font-medium border-l-2 border-indigo-500 pl-2'
-                              : 'text-slate-300 hover:bg-[#161f36] hover:text-white'
+                              ? 'bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-white font-medium border-l-2 border-indigo-500 pl-2'
+                              : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#161f36] hover:text-slate-900 dark:hover:text-white'
                           }`}
                         >
                           <div className="flex items-center gap-2">
@@ -688,9 +709,9 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
                             <span>{comp.company_name}</span>
                           </div>
                           <span className={`text-[10px] font-bold ${
-                            comp.alignment_score >= 80 ? 'text-emerald-400' 
-                            : comp.alignment_score >= 60 ? 'text-amber-400' 
-                            : 'text-red-400'
+                            comp.alignment_score >= 80 ? 'text-emerald-600 dark:text-emerald-400' 
+                            : comp.alignment_score >= 60 ? 'text-amber-600 dark:text-amber-400' 
+                            : 'text-red-600 dark:text-red-400'
                           }`}>
                             {comp.alignment_score}% Match
                           </span>
@@ -707,20 +728,20 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
           <div className="glass-card p-6 flex flex-col gap-4">
             {company_intelligence[selectedCompany] ? (
               <>
-                <div className="flex justify-between items-center pb-3 border-b border-[#1e2740]">
+                <div className="flex justify-between items-center pb-3 border-b border-slate-200 dark:border-[#1e2740]">
                   <div className="flex items-center gap-2">
-                    <Building className="w-4 h-4 text-indigo-400" />
-                    <h3 className="font-semibold text-sm text-slate-200">
+                    <Building className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                    <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-200">
                       {company_intelligence[selectedCompany].company_name} Expectations
                     </h3>
                   </div>
 
                   <span className={`px-2.5 py-0.5 rounded text-xs font-bold ${
                     company_intelligence[selectedCompany].alignment_score >= 80 
-                      ? 'bg-emerald-500/10 text-emerald-400' 
+                      ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' 
                       : company_intelligence[selectedCompany].alignment_score >= 60 
-                      ? 'bg-amber-500/10 text-amber-400' 
-                      : 'bg-red-500/10 text-red-400'
+                      ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400' 
+                      : 'bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400'
                   }`}>
                     {company_intelligence[selectedCompany].alignment_score}% Fit Score
                   </span>
@@ -729,22 +750,22 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
                 <div className="space-y-4">
                   <div>
                     <span className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1">Company Profile & Rubric</span>
-                    <p className="text-xs text-slate-300 leading-relaxed">
+                    <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
                       {company_intelligence[selectedCompany].resume_characteristics}
                     </p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-3 bg-slate-900/40 rounded-xl border border-slate-900 text-xs">
-                      <span className="text-[10px] text-indigo-400 uppercase tracking-wider block mb-1">Project Standards</span>
-                      <p className="text-slate-400 leading-relaxed">
+                    <div className="p-3 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-900 text-xs">
+                      <span className="text-[10px] text-indigo-600 dark:text-indigo-400 uppercase tracking-wider block mb-1 font-semibold">Project Standards</span>
+                      <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
                         {company_intelligence[selectedCompany].project_expectation}
                       </p>
                     </div>
 
-                    <div className="p-3 bg-slate-900/40 rounded-xl border border-slate-900 text-xs">
-                      <span className="text-[10px] text-indigo-400 uppercase tracking-wider block mb-1">Achievement Focus</span>
-                      <p className="text-slate-400 leading-relaxed">
+                    <div className="p-3 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-900 text-xs">
+                      <span className="text-[10px] text-indigo-600 dark:text-indigo-400 uppercase tracking-wider block mb-1 font-semibold">Achievement Focus</span>
+                      <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
                         {company_intelligence[selectedCompany].achievement_expectation}
                       </p>
                     </div>
@@ -755,11 +776,11 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
                     <span className="text-[10px] text-slate-500 uppercase tracking-wider block mb-2">Preferred Skills Audit</span>
                     <div className="space-y-3">
                       <div>
-                        <span className="text-[10px] text-slate-600 font-medium block mb-1">Matched Skills</span>
+                        <span className="text-[10px] text-slate-600 dark:text-slate-400 font-medium block mb-1">Matched Skills</span>
                         <div className="flex flex-wrap gap-1.5">
                           {company_intelligence[selectedCompany].matched_preferred_skills.length > 0 ? (
                             company_intelligence[selectedCompany].matched_preferred_skills.map((skill) => (
-                              <span key={skill} className="bg-emerald-500/10 text-emerald-400 text-[10px] px-2 py-0.5 rounded font-semibold border border-emerald-500/10">
+                              <span key={skill} className="bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] px-2 py-0.5 rounded font-semibold border border-emerald-200 dark:border-emerald-500/10">
                                 {skill}
                               </span>
                             ))
@@ -770,16 +791,16 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
                       </div>
 
                       <div>
-                        <span className="text-[10px] text-slate-600 font-medium block mb-1">Missing Preferred Skills</span>
+                        <span className="text-[10px] text-slate-600 dark:text-slate-400 font-medium block mb-1">Missing Preferred Skills</span>
                         <div className="flex flex-wrap gap-1.5">
                           {company_intelligence[selectedCompany].missing_preferred_skills.length > 0 ? (
                             company_intelligence[selectedCompany].missing_preferred_skills.map((skill) => (
-                              <span key={skill} className="bg-red-500/10 text-red-400 text-[10px] px-2 py-0.5 rounded font-semibold border border-red-500/10">
+                              <span key={skill} className="bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 text-[10px] px-2 py-0.5 rounded font-semibold border border-red-200 dark:border-red-500/10">
                                 {skill}
                               </span>
                             ))
                           ) : (
-                            <span className="text-[10px] text-emerald-400 font-semibold">All preferred skills listed!</span>
+                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">All preferred skills listed!</span>
                           )}
                         </div>
                       </div>
@@ -801,27 +822,27 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
           
           {/* How It is Validated Card */}
           <div className="lg:col-span-7 glass-card p-5 flex flex-col gap-4">
-            <div className="flex items-center gap-2 pb-3 border-b border-[#1e2740]">
-              <BookOpen className="w-4 h-4 text-indigo-400" />
-              <h3 className="font-medium text-sm text-slate-300">How Your Score is Validated</h3>
+            <div className="flex items-center gap-2 pb-3 border-b border-slate-200 dark:border-[#1e2740]">
+              <BookOpen className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+              <h3 className="font-medium text-sm text-slate-800 dark:text-slate-300">How Your Score is Validated</h3>
             </div>
             
-            <p className="text-xs text-slate-400 leading-relaxed">
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
               The overall score is a weighted calculation reflecting standard Applicant Tracking System (ATS) parsing requirements and professional recruiter criteria:
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {breakdownItems.map((item) => (
-                <div key={item.key} className="flex items-start gap-3 p-3 bg-[#0f1525]/30 border border-[#1e2740]/40 rounded-xl">
+                <div key={item.key} className="flex items-start gap-3 p-3 bg-slate-50 dark:bg-[#0f1525]/30 border border-slate-200 dark:border-[#1e2740]/40 rounded-xl">
                   <div className={`w-2.5 h-2.5 rounded-full ${item.color} mt-1.5 shrink-0`} />
                   <div className="flex-1">
                     <div className="flex justify-between items-center text-xs mb-1">
-                      <span className="font-semibold text-slate-200">{item.name}</span>
-                      <span className="text-[10px] font-semibold text-slate-500 bg-[#1e2740] px-1.5 py-0.5 rounded">
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">{item.name}</span>
+                      <span className="text-[10px] font-semibold text-slate-700 dark:text-slate-400 bg-slate-200 dark:bg-[#1e2740] px-1.5 py-0.5 rounded">
                         Weight: {item.weight}%
                       </span>
                     </div>
-                    <p className="text-[11px] text-slate-500 leading-relaxed">{item.desc}</p>
+                    <p className="text-[11px] text-slate-600 dark:text-slate-500 leading-relaxed">{item.desc}</p>
                   </div>
                 </div>
               ))}
@@ -830,22 +851,22 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
 
           {/* AI Bullet Point Optimizer & Fixes Card */}
           <div className="lg:col-span-5 glass-card p-5 flex flex-col gap-4">
-            <div className="flex items-center gap-2 pb-3 border-b border-[#1e2740]">
-              <Zap className="w-4 h-4 text-indigo-400" />
-              <h3 className="font-medium text-sm text-slate-300">AI Bullet Rewriter & Fixes</h3>
+            <div className="flex items-center gap-2 pb-3 border-b border-slate-200 dark:border-[#1e2740]">
+              <Zap className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+              <h3 className="font-medium text-sm text-slate-800 dark:text-slate-300">AI Bullet Rewriter & Fixes</h3>
             </div>
 
-            <p className="text-[11px] text-slate-500 leading-relaxed">
+            <p className="text-[11px] text-slate-600 dark:text-slate-500 leading-relaxed">
               Select a bullet point from your resume to optimize. Rewriting statements with strong verbs and metrics directly boosts your Achievements score and overall compatibility.
             </p>
 
             {fixAppliedSuccess && (
-              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-xs text-emerald-400 flex flex-col gap-1.5 animate-fade-in text-left">
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-xs text-emerald-600 dark:text-emerald-400 flex flex-col gap-1.5 animate-fade-in text-left">
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  <span className="font-semibold text-white">Line Successfully Updated!</span>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
+                  <span className="font-semibold text-slate-800 dark:text-white">Line Successfully Updated!</span>
                 </div>
-                <p className="text-[10px] text-slate-400 leading-relaxed">
+                <p className="text-[10px] text-slate-600 dark:text-slate-400 leading-relaxed">
                   The optimized achievement has been auto-inserted into your active draft. You can view, copy, or download the updated resume from the <b>ATS Structured/Raw Simulator</b> below.
                 </p>
               </div>
@@ -854,11 +875,11 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
             {/* Selector / List */}
             <div className="flex flex-col gap-1.5">
               <div className="flex justify-between items-center mb-1">
-                <span className="text-[10px] text-slate-600 font-medium">
+                <span className="text-[10px] text-slate-600 dark:text-slate-400 font-medium">
                   {resumeBullets.length > 0 ? "Detected Resume Bullets" : "Quick templates"}
                 </span>
                 {resumeBullets.length > 0 && (
-                  <span className="text-[9px] text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded">
+                  <span className="text-[9px] text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 px-1.5 py-0.5 rounded font-semibold">
                     {resumeBullets.length} found
                   </span>
                 )}
@@ -874,15 +895,15 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
                         setInputBullet(item.clean);
                         setSelectedRawBullet(item.raw);
                       }}
-                      className={`w-full text-left px-2.5 py-2 bg-[#0f1525]/40 hover:bg-[#141c2e] border transition-all text-[11px] rounded-lg flex items-center justify-between gap-2 ${
+                      className={`w-full text-left px-2.5 py-2 bg-slate-50 hover:bg-slate-100 dark:bg-[#0f1525]/40 dark:hover:bg-[#141c2e] border transition-all text-[11px] rounded-lg flex items-center justify-between gap-2 cursor-pointer ${
                         inputBullet === item.clean
-                          ? 'border-indigo-500 bg-indigo-500/5 text-indigo-300'
-                          : 'border-[#1e2740] text-slate-400'
+                          ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/5 text-indigo-700 dark:text-indigo-300 font-medium'
+                          : 'border-slate-200 dark:border-[#1e2740] text-slate-700 dark:text-slate-400'
                       }`}
                     >
                       <span className="truncate flex-1">{item.clean}</span>
                       {item.isWeak && (
-                        <span className="shrink-0 text-[8px] font-semibold text-amber-400 bg-amber-500/10 px-1 py-0.5 rounded">
+                        <span className="shrink-0 text-[8px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 px-1 py-0.5 rounded">
                           Lacks metrics
                         </span>
                       )}
@@ -899,8 +920,8 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
                         setInputBullet(tpl);
                         setSelectedRawBullet("");
                       }}
-                      className={`w-full text-left px-2.5 py-1.5 bg-[#0f1525]/40 hover:bg-[#141c2e] border border-[#1e2740] text-[11px] text-slate-400 truncate rounded-lg transition-colors ${
-                        inputBullet === tpl ? 'border-indigo-500 text-indigo-300' : ''
+                      className={`w-full text-left px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 dark:bg-[#0f1525]/40 dark:hover:bg-[#141c2e] border border-slate-200 dark:border-[#1e2740] text-[11px] text-slate-700 dark:text-slate-400 truncate rounded-lg transition-colors cursor-pointer ${
+                        inputBullet === tpl ? 'border-indigo-500 text-indigo-700 dark:text-indigo-300 font-medium' : ''
                       }`}
                     >
                       {tpl}
@@ -917,10 +938,10 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
                 onChange={(e) => setInputBullet(e.target.value)}
                 placeholder="Select a bullet from above or paste a custom one..."
                 rows={3}
-                className="w-full bg-[#0f1525] border border-[#1e2740] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 text-slate-200 leading-relaxed"
+                className="w-full bg-slate-50 dark:bg-[#0f1525] border border-slate-200 dark:border-[#1e2740] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 leading-relaxed font-sans"
               />
               {errorRewrite && (
-                <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/15 text-[11px] text-red-400 flex items-center gap-1.5">
+                <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/15 text-[11px] text-red-500 dark:text-red-400 flex items-center gap-1.5">
                   <AlertCircle className="w-3 h-3 shrink-0" />
                   <span>{errorRewrite}</span>
                 </div>
@@ -928,10 +949,10 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
               <button
                 type="submit"
                 disabled={loadingRewrite || applyingFix || !inputBullet.trim()}
-                className={`py-2.5 rounded-lg font-medium flex items-center justify-center gap-1.5 text-xs transition-all ${
+                className={`py-2.5 rounded-lg font-medium flex items-center justify-center gap-1.5 text-xs transition-all cursor-pointer ${
                   loadingRewrite
-                    ? 'bg-[#1e2740] text-slate-500 cursor-not-allowed'
-                    : 'bg-indigo-500 hover:bg-indigo-600 text-white'
+                    ? 'bg-slate-200 dark:bg-[#1e2740] text-slate-500 cursor-not-allowed'
+                    : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm'
                 }`}
               >
                 {loadingRewrite ? (
@@ -942,18 +963,18 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
 
             {/* Result Block */}
             {rewriteResult && (
-              <div className="flex flex-col gap-3 pt-3 border-t border-[#1e2740] animate-fade-in text-left">
-                <div className="p-3 bg-[#0f1525]/60 border border-[#1e2740] rounded-xl">
-                  <span className="text-[10px] text-slate-600 block mb-1">Suggested</span>
+              <div className="flex flex-col gap-3 pt-3 border-t border-slate-200 dark:border-[#1e2740] animate-fade-in text-left">
+                <div className="p-3 bg-slate-50 dark:bg-[#0f1525]/60 border border-slate-200 dark:border-[#1e2740] rounded-xl">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block mb-1">Suggested</span>
                   {isEditing ? (
                     <textarea
                       value={editedRewritten}
                       onChange={(e) => setEditedRewritten(e.target.value)}
                       rows={3}
-                      className="w-full mt-1 bg-[#070b13] border border-slate-700 rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-sans"
+                      className="w-full mt-1 bg-white dark:bg-[#070b13] border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-indigo-500 font-sans"
                     />
                   ) : (
-                    <p className="text-xs font-medium text-emerald-400 leading-relaxed">
+                    <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400 leading-relaxed">
                       "{rewriteResult.rewritten}"
                     </p>
                   )}
@@ -971,7 +992,7 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
                           });
                           setIsEditing(false);
                         }}
-                        className="flex-1 py-2 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-medium transition-all cursor-pointer"
+                        className="flex-1 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-all cursor-pointer"
                       >
                         Save
                       </button>
@@ -981,7 +1002,7 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
                           setIsEditing(false);
                           setEditedRewritten(rewriteResult.rewritten);
                         }}
-                        className="py-2 px-4 rounded-lg bg-[#1e2740] hover:bg-slate-700 text-slate-300 text-xs font-medium transition-all cursor-pointer"
+                        className="py-2 px-4 rounded-lg bg-slate-200 hover:bg-slate-300 dark:bg-[#1e2740] dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium transition-all cursor-pointer"
                       >
                         Cancel
                       </button>
@@ -992,7 +1013,7 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
                         type="button"
                         onClick={handleApplyFix}
                         disabled={applyingFix}
-                        className="flex-1 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-medium flex items-center justify-center gap-1.5 transition-all shadow-md shadow-emerald-500/10 cursor-pointer"
+                        className="flex-1 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium flex items-center justify-center gap-1.5 transition-all shadow-md shadow-emerald-500/10 cursor-pointer"
                       >
                         {applyingFix ? (
                           <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Accepting...</>
@@ -1006,14 +1027,14 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
                           setIsEditing(true);
                           setEditedRewritten(rewriteResult.rewritten);
                         }}
-                        className="py-2 px-4 rounded-lg bg-[#1e2740] hover:bg-slate-700 text-slate-300 text-xs font-medium transition-all cursor-pointer"
+                        className="py-2 px-4 rounded-lg bg-slate-200 hover:bg-slate-300 dark:bg-[#1e2740] dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium transition-all cursor-pointer"
                       >
                         Edit
                       </button>
                       <button
                         type="button"
                         onClick={() => setRewriteResult(null)}
-                        className="py-2 px-4 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 text-xs font-medium transition-all cursor-pointer"
+                        className="py-2 px-4 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-500 dark:text-rose-400 text-xs font-medium transition-all cursor-pointer"
                       >
                         Reject
                       </button>
@@ -1034,6 +1055,18 @@ export default function AtsAnalysis({ reportData, backendUrl, onScanComplete, on
             scoreOverall={score_overall}
             backendUrl={backendUrl}
             onUpdateReport={onUpdateReport}
+            token={token}
+          />
+        </div>
+      )}
+
+      {activeTab === 'rebuilder' && (
+        <div className="animate-fade-in">
+          <ResumeRebuilder
+            resumeId={resume_id}
+            targetRole={target_role}
+            filename={(reportData as any).filename || 'resume.pdf'}
+            backendUrl={backendUrl}
             token={token}
           />
         </div>

@@ -194,7 +194,7 @@ export default function Versions({
               <select
                 value={compareV1}
                 onChange={(e) => setCompareV1(e.target.value ? Number(e.target.value) : "")}
-                className="w-full bg-[#0f1525] border border-slate-800 rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-indigo-500 text-slate-200"
+                className="w-full bg-white dark:bg-[#0f1525] border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-indigo-500 text-slate-800 dark:text-slate-200 shadow-sm"
               >
                 <option value="">Select version...</option>
                 {historyData.map((item) => (
@@ -206,7 +206,7 @@ export default function Versions({
             </div>
 
             <div className="flex justify-center py-2 md:col-span-1 md:pb-3">
-              <ArrowRight className="w-4 h-4 text-slate-600 hidden md:block" />
+              <ArrowRight className="w-4 h-4 text-slate-400 dark:text-slate-600 hidden md:block" />
             </div>
 
             <div className="md:col-span-2">
@@ -214,7 +214,7 @@ export default function Versions({
               <select
                 value={compareV2}
                 onChange={(e) => setCompareV2(e.target.value ? Number(e.target.value) : "")}
-                className="w-full bg-[#0f1525] border border-slate-800 rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-indigo-500 text-slate-200"
+                className="w-full bg-white dark:bg-[#0f1525] border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-indigo-500 text-slate-800 dark:text-slate-200 shadow-sm"
               >
                 <option value="">Select version...</option>
                 {historyData.map((item) => (
@@ -243,9 +243,9 @@ export default function Versions({
           {comparisonResult && (
             <div className="space-y-5 mt-2 animate-fade-in">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 bg-slate-900/30 border border-slate-800 rounded-xl">
+                <div className="p-4 bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-800 rounded-xl">
                   <div className="flex justify-between items-start mb-2">
-                    <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-bold uppercase">
+                    <span className="text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-400 px-2 py-0.5 rounded font-bold uppercase">
                       Base Version (v{comparisonResult.v1.version})
                     </span>
                     <span className="text-xl font-bold text-slate-200">{comparisonResult.v1.score_overall} pts</span>

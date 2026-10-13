@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, 
   UploadCloud, 
@@ -7,21 +7,23 @@ import {
   Building, 
   Briefcase, 
   History, 
-  Settings as SettingsIcon,
-  LogOut,
-  ChevronLeft,
-  Menu,
-  FileCheck,
-  Mail,
-  UserCheck,
-  CreditCard,
-  GitPullRequest,
-  Sparkles,
-  GitBranch,
-  Globe,
-  ClipboardList,
-  MessageSquare
+  Settings as SettingsIcon, 
+  LogOut, 
+  ChevronLeft, 
+  Menu, 
+  FileCheck, 
+  Mail, 
+  UserCheck, 
+  CreditCard, 
+  GitPullRequest, 
+  Sparkles, 
+  GitBranch, 
+  Globe, 
+  ClipboardList, 
+  MessageSquare,
+  Award
 } from 'lucide-react';
+import ThemeToggle from './ThemeToggle';
 
 const Linkedin = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -45,6 +47,7 @@ interface DashboardLayoutProps {
   onTabChange: (tab: string) => void;
   children: React.ReactNode;
   userEmail?: string;
+  currentPlan?: string;
   onLogout: () => void;
 }
 
@@ -53,10 +56,31 @@ export default function DashboardLayout({
   onTabChange, 
   children, 
   userEmail = "candidate@resumeiq.ai",
+  currentPlan: propPlan,
   onLogout
 }: DashboardLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [internalPlan, setInternalPlan] = useState<string>(() => {
+    return propPlan || localStorage.getItem("resumeiq_plan") || "Free";
+  });
+
+  const activePlan = propPlan || internalPlan;
+
+  useEffect(() => {
+    if (propPlan) {
+      setInternalPlan(propPlan);
+    }
+  }, [propPlan]);
+
+  useEffect(() => {
+    const handlePlanChange = (e: any) => {
+      if (e.detail) setInternalPlan(e.detail);
+      else setInternalPlan(localStorage.getItem("resumeiq_plan") || "Free");
+    };
+    window.addEventListener('resumeiq:plan_changed', handlePlanChange);
+    return () => window.removeEventListener('resumeiq:plan_changed', handlePlanChange);
+  }, []);
 
   const menuItems = [
     { id: 'overview', name: 'Dashboard', icon: LayoutDashboard },
@@ -69,25 +93,25 @@ export default function DashboardLayout({
 
 
   return (
-    <div className="flex h-screen bg-[#0f172a] text-slate-100 overflow-hidden">
+    <div className="flex h-screen bg-slate-50 dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 overflow-hidden">
       
       {/* Sidebar — Desktop */}
       <aside 
-        className={`hidden md:flex flex-col bg-[#0f172a]/70 backdrop-blur-xl border-r border-slate-800/50 transition-all duration-300 relative ${
+        className={`hidden md:flex flex-col bg-white/80 dark:bg-[#0f172a]/70 backdrop-blur-xl border-r border-slate-200 dark:border-slate-800/50 transition-all duration-300 relative ${
           sidebarCollapsed ? 'w-[68px]' : 'w-56'
         }`}
       >
         {/* Toggle Button floating on border */}
         <button 
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          className="absolute top-4 -right-3 w-6 h-6 rounded-full border border-slate-800 bg-[#0c1222] text-slate-400 hover:text-white flex items-center justify-center cursor-pointer shadow-md z-50 transition-transform hover:scale-110"
+          className="absolute top-4 -right-3 w-6 h-6 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0c1222] text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white flex items-center justify-center cursor-pointer shadow-md z-50 transition-all hover:scale-110"
           title={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
         >
           <ChevronLeft className={`w-3.5 h-3.5 transition-transform duration-300 ${sidebarCollapsed ? 'rotate-180' : ''}`} />
         </button>
 
         {/* Logo */}
-        <div className={`h-14 flex items-center border-b border-slate-800/50 ${
+        <div className={`h-14 flex items-center border-b border-slate-200 dark:border-slate-800/50 ${
           sidebarCollapsed ? 'justify-center px-0' : 'justify-between px-4'
         }`}>
           <div className="flex items-center gap-2.5 overflow-hidden">
@@ -99,7 +123,7 @@ export default function DashboardLayout({
               </svg>
             </div>
             {!sidebarCollapsed && (
-              <span className="font-extrabold text-sm bg-gradient-to-r from-white via-slate-100 to-indigo-300 bg-clip-text text-transparent tracking-tight">
+              <span className="font-extrabold text-sm bg-gradient-to-r from-slate-900 to-indigo-600 dark:from-white dark:via-slate-100 dark:to-indigo-300 bg-clip-text text-transparent tracking-tight">
                 Resora AI
               </span>
             )}
@@ -119,14 +143,14 @@ export default function DashboardLayout({
                   sidebarCollapsed ? 'justify-center px-0 py-2.5' : 'justify-start px-3 py-2.5 gap-3'
                 } ${
                   isActive 
-                    ? 'bg-gradient-to-r from-indigo-500/10 to-violet-500/5 text-indigo-400 border-indigo-500/20 shadow-md shadow-indigo-500/5' 
-                    : 'text-slate-400 border-transparent hover:bg-slate-800/30 hover:text-slate-200'
+                    ? 'bg-gradient-to-r from-indigo-500/10 to-violet-500/5 text-indigo-600 dark:text-indigo-400 border-indigo-500/20 shadow-md shadow-indigo-500/5' 
+                    : 'text-slate-500 dark:text-slate-400 border-transparent hover:bg-slate-100 dark:hover:bg-slate-800/30 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
               >
-                <Icon className={`w-[18px] h-[18px] shrink-0 ${isActive ? 'text-indigo-400' : 'text-slate-400 group-hover:text-slate-300'}`} />
+                <Icon className={`w-[18px] h-[18px] shrink-0 ${isActive ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300'}`} />
                 {!sidebarCollapsed && <span>{item.name}</span>}
                 {sidebarCollapsed && (
-                  <div className="absolute left-full ml-2 px-2 py-1 bg-[#0f1525] border border-slate-800/60 text-xs font-medium rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30 shadow-xl whitespace-nowrap text-slate-300">
+                  <div className="absolute left-full ml-2 px-2 py-1 bg-white dark:bg-[#0f1525] border border-slate-200 dark:border-slate-800/60 text-xs font-medium rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30 shadow-xl whitespace-nowrap text-slate-700 dark:text-slate-300">
                     {item.name}
                   </div>
                 )}
@@ -136,7 +160,7 @@ export default function DashboardLayout({
         </nav>
 
         {/* User Profile & Logout */}
-        <div className="p-2.5 border-t border-slate-800/50">
+        <div className="p-2.5 border-t border-slate-200 dark:border-slate-800/50">
           {!sidebarCollapsed ? (
             <div className="flex items-center justify-between gap-2 px-2 py-2">
               <div className="overflow-hidden">
@@ -175,8 +199,9 @@ export default function DashboardLayout({
                     <polyline points="9 15 11 17 15 13" />
                   </svg>
                 </div>
-                <span className="font-extrabold text-sm bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">Resora AI</span>
+                <span className="font-extrabold text-sm bg-gradient-to-r from-slate-900 to-indigo-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">Resora AI</span>
               </div>
+              <ThemeToggle variant="icon" />
             </div>
             <nav className="flex-1 px-3 py-4 space-y-1">
               {menuItems.map((item) => {
@@ -208,18 +233,52 @@ export default function DashboardLayout({
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         
-        {/* Top Bar — minimal */}
-        <header className="h-14 border-b border-slate-800/50 bg-[#060913]/70 backdrop-blur-xl flex items-center justify-between px-6 shrink-0">
+        {/* Top Bar */}
+        <header className="h-14 border-b border-slate-200 dark:border-slate-800/50 bg-white/80 dark:bg-[#060913]/70 backdrop-blur-xl flex items-center justify-between px-6 shrink-0 transition-colors duration-300">
           <div className="flex items-center gap-3">
             <button 
               onClick={() => setMobileOpen(true)}
-              className="p-1.5 rounded-md border border-slate-800/60 text-slate-400 md:hidden hover:text-white transition-colors"
+              className="p-1.5 rounded-md border border-slate-200 dark:border-slate-800/60 text-slate-500 dark:text-slate-400 md:hidden hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
             >
               <Menu className="w-4 h-4" />
             </button>
-            <h2 className="font-bold text-sm text-slate-200 uppercase tracking-wider">
+            <h2 className="font-bold text-sm text-slate-800 dark:text-slate-200 uppercase tracking-wider">
               {menuItems.find(item => item.id === currentTab)?.name || "Resora AI"}
             </h2>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Active Plan Pill */}
+            <button
+              onClick={() => {
+                onTabChange('settings');
+                window.dispatchEvent(new CustomEvent('resumeiq:open_settings_subtab', { detail: 'plans' }));
+              }}
+              className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold tracking-wider transition-all cursor-pointer border shadow-sm ${
+                activePlan === 'Pro'
+                  ? 'bg-gradient-to-r from-indigo-500/15 via-purple-500/15 to-pink-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 hover:border-indigo-500/60 shadow-indigo-500/10'
+                  : activePlan === 'Enterprise'
+                  ? 'bg-gradient-to-r from-purple-500/15 to-violet-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30 hover:border-purple-500/60 shadow-purple-500/10'
+                  : 'bg-slate-100 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700/40 hover:border-slate-300 dark:hover:border-slate-600'
+              }`}
+              title="Click to view subscription plans & upgrades"
+            >
+              {activePlan === 'Pro' ? (
+                <Sparkles className="w-3.5 h-3.5 text-indigo-500 animate-pulse" />
+              ) : activePlan === 'Enterprise' ? (
+                <Building className="w-3.5 h-3.5 text-purple-500" />
+              ) : (
+                <Award className="w-3.5 h-3.5 text-slate-400" />
+              )}
+              <span>{activePlan} Plan</span>
+            </button>
+
+            <ThemeToggle variant="pill" />
+
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/30 border border-slate-200 dark:border-slate-700/30 text-[11px] text-slate-600 dark:text-slate-400">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="font-medium truncate max-w-[150px]">{userEmail}</span>
+            </div>
           </div>
         </header>
 

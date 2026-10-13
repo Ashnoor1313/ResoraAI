@@ -175,30 +175,30 @@ export default function UploadSection({ onScanComplete, backendUrl, token }: Upl
         
         {/* Drop Zone */}
         <div>
-          <label className="block text-xs font-medium text-slate-400 mb-2">Resume File</label>
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">Resume File</label>
           <div 
             {...getRootProps()} 
             className={`border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all ${
               isDragActive 
-                ? 'border-indigo-500 bg-indigo-500/5' 
+                ? 'border-indigo-500 bg-indigo-500/10' 
                 : file 
-                  ? 'border-emerald-500/40 bg-emerald-500/5' 
-                  : 'border-[#1e2740] bg-[#0f1525]/40 hover:bg-[#0f1525]/70 hover:border-slate-600'
+                  ? 'border-emerald-500/50 bg-emerald-500/5' 
+                  : 'border-slate-300 dark:border-[#1e2740] bg-slate-50/80 dark:bg-[#0f1525]/40 hover:bg-indigo-50/60 dark:hover:bg-[#0f1525]/70 hover:border-indigo-400 dark:hover:border-slate-600'
             }`}
           >
             <input {...getInputProps()} />
             
             {file ? (
               <div className="flex flex-col items-center text-center gap-2">
-                <FileText className="w-10 h-10 text-emerald-400" />
-                <p className="font-medium text-sm text-slate-200">{file.name}</p>
+                <FileText className="w-10 h-10 text-emerald-500 dark:text-emerald-400" />
+                <p className="font-semibold text-sm text-slate-800 dark:text-slate-200">{file.name}</p>
                 <p className="text-xs text-slate-500">{(file.size / 1024).toFixed(1)} KB</p>
-                <span className="text-xs text-indigo-400 font-medium">Change file</span>
+                <span className="text-xs text-indigo-500 dark:text-indigo-400 font-semibold">Change file</span>
               </div>
             ) : (
               <div className="flex flex-col items-center text-center gap-2">
-                <Upload className="w-8 h-8 text-slate-500" />
-                <p className="font-medium text-sm text-slate-300">Drop your resume here</p>
+                <Upload className="w-8 h-8 text-slate-400 dark:text-slate-500" />
+                <p className="font-semibold text-sm text-slate-700 dark:text-slate-300">Drop your resume here</p>
                 <p className="text-xs text-slate-500">PDF or DOCX, max 10MB</p>
               </div>
             )}
@@ -207,21 +207,21 @@ export default function UploadSection({ onScanComplete, backendUrl, token }: Upl
 
         {/* Role Selection */}
         <div className="relative" ref={dropdownRef}>
-          <label className="block text-xs font-medium text-slate-400 mb-2">Target Role</label>
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">Target Role</label>
           <button
             type="button"
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="w-full bg-[#0f1525] border border-[#1e2740] rounded-xl px-3.5 py-3 text-sm focus:outline-none focus:border-indigo-500 text-slate-200 flex justify-between items-center transition-all cursor-pointer shadow-sm hover:bg-[#0f1525]/80 active:scale-[0.99]"
+            className="w-full bg-white dark:bg-[#0f1525] border border-slate-200 dark:border-[#1e2740] rounded-xl px-3.5 py-3 text-sm focus:outline-none focus:border-indigo-500 text-slate-800 dark:text-slate-200 flex justify-between items-center transition-all cursor-pointer shadow-sm hover:bg-slate-50 dark:hover:bg-[#0f1525]/80 active:scale-[0.99]"
           >
             <span>{selectedRoleLabel}</span>
-            <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`w-4 h-4 text-slate-500 dark:text-slate-400 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
           </button>
 
           {isDropdownOpen && (
-            <div className="absolute top-full left-0 z-50 mt-2 w-full bg-[#0d1222]/95 backdrop-blur-md border border-[#1e2740] rounded-xl shadow-2xl overflow-hidden animate-fade-in max-h-72 overflow-y-auto">
+            <div className="absolute top-full left-0 z-50 mt-2 w-full bg-white dark:bg-[#0d1222]/95 backdrop-blur-md border border-slate-200 dark:border-[#1e2740] rounded-xl shadow-2xl overflow-hidden animate-fade-in max-h-72 overflow-y-auto">
               {Object.entries(TRACK_CATEGORIES).map(([cat, roles]) => (
                 <div key={cat} className="p-1.5 first:pt-1.5">
-                  <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-indigo-400 select-none">
+                  <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 select-none">
                     {cat}
                   </div>
                   <div className="space-y-0.5">
@@ -237,12 +237,12 @@ export default function UploadSection({ onScanComplete, backendUrl, token }: Upl
                           }}
                           className={`w-full text-left px-3 py-2 text-sm rounded-lg flex items-center justify-between transition-all cursor-pointer ${
                             isSelected
-                              ? 'bg-indigo-500/20 text-white font-medium border-l-2 border-indigo-500 pl-2'
-                              : 'text-slate-300 hover:bg-[#161f36] hover:text-white'
+                              ? 'bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-white font-semibold border-l-2 border-indigo-500 pl-2'
+                              : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#161f36] hover:text-slate-900 dark:hover:text-white'
                           }`}
                         >
                           <span>{r.label}</span>
-                          {isSelected && <Check className="w-4 h-4 text-indigo-400" />}
+                          {isSelected && <Check className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />}
                         </button>
                       );
                     })}
@@ -256,21 +256,21 @@ export default function UploadSection({ onScanComplete, backendUrl, token }: Upl
         {/* JD Input */}
         <div>
           <div className="flex justify-between items-center mb-2">
-            <label className="block text-xs font-medium text-slate-400">Job Description</label>
-            <span className="text-[11px] text-slate-600">Optional</span>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Job Description</label>
+            <span className="text-[11px] text-slate-400 dark:text-slate-600">Optional</span>
           </div>
           <textarea 
             value={jobDescription}
             onChange={(e) => setJobDescription(e.target.value)}
             placeholder="Paste a job description for tailored keyword matching..."
             rows={4}
-            className="w-full bg-[#0f1525] border border-[#1e2740] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500 text-slate-200 placeholder-slate-600 leading-relaxed"
+            className="w-full bg-white dark:bg-[#0f1525] border border-slate-200 dark:border-[#1e2740] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500 text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 leading-relaxed shadow-sm"
           />
         </div>
 
         {/* Error */}
         {errorMsg && (
-          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center gap-2 text-xs text-red-400">
+          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center gap-2 text-xs text-red-500 dark:text-red-400">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{errorMsg}</span>
           </div>
@@ -280,12 +280,12 @@ export default function UploadSection({ onScanComplete, backendUrl, token }: Upl
         <button
           type="submit"
           disabled={!file || loading}
-          className={`w-full py-3 rounded-xl font-medium flex items-center justify-center gap-2 transition-all text-sm ${
+          className={`w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all text-sm cursor-pointer shadow-md ${
             loading 
-              ? 'bg-[#1e2740] text-slate-500 cursor-not-allowed'
+              ? 'bg-slate-200 dark:bg-[#1e2740] text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-none'
               : !file 
-                ? 'bg-[#1e2740] text-slate-600 cursor-not-allowed'
-                : 'bg-indigo-500 hover:bg-indigo-600 text-white'
+                ? 'bg-slate-200 dark:bg-[#1e2740] text-slate-400 dark:text-slate-600 cursor-not-allowed shadow-none'
+                : 'bg-indigo-500 hover:bg-indigo-600 text-white shadow-indigo-500/20'
           }`}
         >
           {loading ? (
@@ -329,7 +329,7 @@ export default function UploadSection({ onScanComplete, backendUrl, token }: Upl
           </div>
         ) : (
           <div className="glass-card p-5">
-            <h3 className="font-medium text-sm text-slate-300 mb-3">How It Works</h3>
+            <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-200 mb-3">How It Works</h3>
             <div className="space-y-3">
               {[
                 { title: "Deterministic Scoring", desc: "Baseline score uses fixed weights — no black box." },
@@ -337,10 +337,10 @@ export default function UploadSection({ onScanComplete, backendUrl, token }: Upl
                 { title: "Actionable Feedback", desc: "Get specific points to improve your score." }
               ].map((item, idx) => (
                 <div key={idx} className="flex items-start gap-2.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400 shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-xs font-medium text-slate-300">{item.title}</p>
-                    <p className="text-[11px] text-slate-500">{item.desc}</p>
+                    <p className="text-xs font-semibold text-slate-800 dark:text-slate-300">{item.title}</p>
+                    <p className="text-[11px] text-slate-600 dark:text-slate-500 leading-normal">{item.desc}</p>
                   </div>
                 </div>
               ))}

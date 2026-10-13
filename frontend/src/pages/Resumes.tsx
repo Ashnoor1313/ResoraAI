@@ -11,10 +11,12 @@ import {
   Briefcase,
   FileText,
   GitBranch,
-  GitCompare
+  GitCompare,
+  FileDown
 } from 'lucide-react';
 import UploadSection from '../components/UploadSection';
 import Versions from './Versions';
+import ResumeRebuilder from '../components/ResumeRebuilder';
 
 
 interface ScanHistoryItem {
@@ -50,6 +52,7 @@ export default function Resumes({
   const [activeSubTab, setActiveSubTab] = useState<'repo' | 'history'>('repo');
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRoleFilter, setSelectedRoleFilter] = useState("All");
+  const [selectedRebuildResume, setSelectedRebuildResume] = useState<ScanHistoryItem | null>(null);
 
   const filteredHistory = historyData.filter((item) => {
     const matchesSearch = item.filename.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -81,13 +84,13 @@ export default function Resumes({
           </div>
         </div>
 
-        <div className="flex gap-1 bg-[#090e1a]/80 p-1 border border-slate-800/80 rounded-xl w-full md:w-auto">
+        <div className="flex gap-1 bg-slate-100 dark:bg-[#090e1a]/80 p-1 border border-slate-200 dark:border-slate-800/80 rounded-xl w-full md:w-auto">
           <button
             onClick={() => setActiveSubTab('repo')}
             className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               activeSubTab === 'repo'
                 ? 'bg-indigo-500 text-white shadow-md shadow-indigo-500/20'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/20'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-800/20'
             }`}
           >
             <History className="w-3.5 h-3.5" />
@@ -98,7 +101,7 @@ export default function Resumes({
             className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               activeSubTab === 'history'
                 ? 'bg-indigo-500 text-white shadow-md shadow-indigo-500/20'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/20'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-800/20'
             }`}
           >
             <GitBranch className="w-3.5 h-3.5" />
@@ -111,7 +114,7 @@ export default function Resumes({
         <div className="flex flex-col gap-6 w-full">
           {/* Upload Zone */}
           <div className="glass-card p-5">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-1.5">
+            <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-1.5">
               <UploadCloud className="w-4.5 h-4.5 text-indigo-400" /> Upload New Resume version
             </h3>
             <UploadSection 
@@ -124,15 +127,15 @@ export default function Resumes({
 
       {/* History List */}
       <div className="glass-card p-5 space-y-4">
-        <div className="flex justify-between items-center pb-3 border-b border-slate-800">
+        <div className="flex justify-between items-center pb-3 border-b border-slate-200 dark:border-slate-800">
           <div className="flex items-center gap-2">
             <History className="w-4 h-4 text-indigo-400" />
-            <h3 className="font-bold text-sm text-slate-200">Scanned Resume Repository</h3>
+            <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200">Scanned Resume Repository</h3>
           </div>
           {historyData.length > 0 && (
             <button
               onClick={onClearHistory}
-              className="text-xs font-bold text-rose-400 hover:text-rose-300 transition-colors cursor-pointer"
+              className="text-xs font-bold text-rose-500 dark:text-rose-400 hover:text-rose-600 dark:hover:text-rose-300 transition-colors cursor-pointer"
             >
               Clear Repository
             </button>
@@ -150,17 +153,17 @@ export default function Resumes({
                   placeholder="Search by filename or target role..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-[#080d1a] border border-slate-800 rounded-xl pl-9 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-sans"
+                  className="w-full bg-white dark:bg-[#080d1a] border border-slate-200 dark:border-slate-800 rounded-xl pl-9 pr-4 py-2.5 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-sans shadow-sm"
                 />
-                <Search className="w-4 h-4 text-slate-600 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-slate-400 dark:text-slate-600 absolute left-3 top-1/2 -translate-y-1/2" />
               </div>
 
               <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4 text-slate-600 shrink-0" />
+                <Filter className="w-4 h-4 text-slate-400 dark:text-slate-600 shrink-0" />
                 <select
                   value={selectedRoleFilter}
                   onChange={(e) => setSelectedRoleFilter(e.target.value)}
-                  className="bg-[#080d1a] border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-300 focus:outline-none focus:border-indigo-500 font-sans"
+                  className="bg-white dark:bg-[#080d1a] border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-800 dark:text-slate-300 focus:outline-none focus:border-indigo-500 font-sans shadow-sm"
                 >
                   {roles.map(role => (
                     <option key={role} value={role}>{role}</option>
@@ -170,8 +173,8 @@ export default function Resumes({
             </div>
 
             {/* Table */}
-            <div className="border border-slate-800 rounded-xl overflow-hidden text-xs">
-              <div className="grid grid-cols-12 bg-[#0f1525]/80 border-b border-slate-800 px-4 py-3 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+            <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden text-xs">
+              <div className="grid grid-cols-12 bg-slate-50 dark:bg-[#0f1525]/80 border-b border-slate-200 dark:border-slate-800 px-4 py-3 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
                 <div className="col-span-5">File Details</div>
                 <div className="col-span-1 text-center">Version</div>
                 <div className="col-span-3">Target Track</div>
@@ -179,59 +182,70 @@ export default function Resumes({
                 <div className="col-span-2 text-right">Actions</div>
               </div>
 
-              <div className="divide-y divide-slate-800/60">
+              <div className="divide-y divide-slate-200 dark:divide-slate-800/60">
                 {filteredHistory.map((item) => {
                   const isActive = currentResumeId === item.resume_id;
                   
                   return (
                     <div 
                       key={item.resume_id} 
-                      className={`grid grid-cols-12 px-4 py-3.5 items-center hover:bg-slate-900/10 transition-colors ${
-                        isActive ? 'bg-indigo-500/5' : ''
+                      className={`grid grid-cols-12 px-4 py-3.5 items-center hover:bg-slate-50 dark:hover:bg-slate-900/10 transition-colors ${
+                        isActive ? 'bg-indigo-50/60 dark:bg-indigo-500/5' : ''
                       }`}
                     >
                       <div className="col-span-5 flex items-center gap-3">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${
                           isActive 
-                            ? 'bg-indigo-500/10 border-indigo-500/25 text-indigo-400' 
-                            : 'bg-slate-900 border-slate-800 text-slate-500'
+                            ? 'bg-indigo-500/10 border-indigo-500/25 text-indigo-500 dark:text-indigo-400' 
+                            : 'bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500'
                         }`}>
                           <FileText className="w-4 h-4" />
                         </div>
                         <div className="truncate text-left">
-                          <span className="font-bold text-slate-200 block truncate" title={item.filename}>{item.filename}</span>
+                          <span className="font-semibold text-slate-800 dark:text-slate-200 block truncate" title={item.filename}>{item.filename}</span>
                           <span className="text-[10px] text-slate-500">{formatDate(item.created_at)}</span>
                         </div>
                       </div>
 
-                      <div className="col-span-1 text-center font-mono text-slate-400 font-semibold">
+                      <div className="col-span-1 text-center font-mono text-slate-600 dark:text-slate-400 font-semibold">
                         v{item.version}
                       </div>
 
-                      <div className="col-span-3 flex items-center gap-1.5 text-slate-300 font-medium">
-                        <Briefcase className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                      <div className="col-span-3 flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium">
+                        <Briefcase className="w-3.5 h-3.5 text-slate-400 dark:text-slate-600 shrink-0" />
                         <span className="truncate">{item.target_role}</span>
                       </div>
 
                       <div className="col-span-1 text-center">
                         <span className={`inline-flex items-center justify-center font-bold px-2 py-0.5 rounded text-[11px] ${
                           item.score_overall >= 80 
-                            ? 'bg-emerald-500/10 text-emerald-400' 
+                            ? 'bg-emerald-500/10 text-emerald-500 dark:text-emerald-400' 
                             : item.score_overall >= 60 
-                            ? 'bg-amber-500/10 text-amber-400' 
-                            : 'bg-rose-500/10 text-rose-400'
+                            ? 'bg-amber-500/10 text-amber-500 dark:text-amber-400' 
+                            : 'bg-rose-500/10 text-rose-500 dark:text-rose-400'
                         }`}>
                           {item.score_overall}
                         </span>
                       </div>
 
-                      <div className="col-span-2 flex justify-end gap-1.5">
+                      <div className="col-span-2 flex justify-end gap-1.5 items-center">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedRebuildResume(item);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-colors cursor-pointer"
+                          title="Rebuild & Export ATS PDF"
+                        >
+                          <FileDown className="w-3.5 h-3.5" />
+                        </button>
+
                         <button
                           onClick={() => onSelectResume(item.resume_id)}
                           className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-0.5 transition-colors cursor-pointer ${
                             isActive 
                               ? 'bg-indigo-600 text-white shadow shadow-indigo-600/10' 
-                              : 'bg-[#0f1525] border border-slate-800 hover:border-slate-700 text-slate-300'
+                              : 'bg-white dark:bg-[#0f1525] border border-slate-200 dark:border-slate-800 hover:border-slate-400 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300'
                           }`}
                         >
                           {isActive ? "Loaded" : "Load"}
@@ -273,6 +287,23 @@ export default function Resumes({
             backendUrl={backendUrl}
             token={token}
           />
+        </div>
+      )}
+
+      {/* Rebuilder Modal */}
+      {selectedRebuildResume && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="glass-card w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-700/80 shadow-2xl bg-[#0b1020]">
+            <ResumeRebuilder
+              resumeId={selectedRebuildResume.resume_id}
+              targetRole={selectedRebuildResume.target_role}
+              filename={selectedRebuildResume.filename}
+              backendUrl={backendUrl}
+              token={token}
+              onClose={() => setSelectedRebuildResume(null)}
+              isModal={true}
+            />
+          </div>
         </div>
       )}
 

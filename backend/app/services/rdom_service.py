@@ -246,8 +246,120 @@ def parse_docx_to_rdom(file_bytes: bytes) -> Dict[str, Any]:
         
     return {"pages": pages, "metadata": {"format": "docx"}}
 
+def parse_text_to_rdom(raw_text: str) -> Dict[str, Any]:
+    """
+    Parses plain text / extracted resume string into the Resume Document Model (RDOM).
+    Generates standard Letter-sized pages (612 x 792 pt) with safe 0.75-inch margins (54pt).
+    """
+    lines = [l.strip() for l in raw_text.split("\n") if l.strip()]
+    if not lines:
+        return {"pages": [{"page_num": 0, "width": 612.0, "height": 792.0, "blocks": []}], "metadata": {"format": "text"}}
+        
+    page_width = 612.0
+    page_height = 792.0
+    margin_x = 54.0
+    margin_y = 54.0
+    usable_width = page_width - (margin_x * 2)
+    
+    current_y = margin_y
+    page_num = 0
+    pages = []
+    page_blocks = []
+    current_section = "summary"
+    
+    for b_idx, text in enumerate(lines):
+        is_header = False
+        font_family = "Helvetica"
+        font_size = 10.5
+        font_weight = "normal"
+        font_color = "#1f2937"
+        
+        # Check section header
+        if len(text.split()) < 5:
+            for sec_name, patterns in SECTION_HEADERS.items():
+                if any(re.search(pat, text.lower()) for pat in patterns):
+                    current_section = sec_name
+                    is_header = True
+                    font_weight = "bold"
+                    font_size = 13.0
+                    font_color = "#0f172a"
+                    break
+                    
+        # Estimate height
+        char_limit = max(20, int(usable_width / (font_size * 0.48)))
+        num_lines = max(1, (len(text) + char_limit - 1) // char_limit)
+        lh = font_size * 1.3
+        block_h = num_lines * lh + (6.0 if is_header else 4.0)
+        
+        # Check overflow
+        if current_y + block_h > page_height - margin_y:
+            pages.append({
+                "page_num": page_num,
+                "width": page_width,
+                "height": page_height,
+                "blocks": page_blocks
+            })
+            page_num += 1
+            page_blocks = []
+            current_y = margin_y
+            
+        block_id = f"p{page_num}_b{b_idx}"
+        bbox = [margin_x, current_y, margin_x + usable_width, current_y + block_h]
+        
+        # Build line segments
+        words = text.split()
+        lines_list = []
+        cur_line_words = []
+        for word in words:
+            test_line = " ".join(cur_line_words + [word])
+            if len(test_line) <= char_limit:
+                cur_line_words.append(word)
+            else:
+                if cur_line_words:
+                    ltxt = " ".join(cur_line_words)
+                    lines_list.append({
+                        "text": ltxt,
+                        "bbox": [margin_x, current_y + len(lines_list) * lh, margin_x + usable_width, current_y + (len(lines_list) + 1) * lh],
+                        "origin": [margin_x, current_y + (len(lines_list) + 1) * lh - 2.0]
+                    })
+                cur_line_words = [word]
+        if cur_line_words:
+            ltxt = " ".join(cur_line_words)
+            lines_list.append({
+                "text": ltxt,
+                "bbox": [margin_x, current_y + len(lines_list) * lh, margin_x + usable_width, current_y + (len(lines_list) + 1) * lh],
+                "origin": [margin_x, current_y + (len(lines_list) + 1) * lh - 2.0]
+            })
+            
+        page_blocks.append({
+            "id": block_id,
+            "page_num": page_num,
+            "bbox": bbox,
+            "text": text,
+            "font_family": font_family,
+            "font_size": font_size,
+            "font_weight": font_weight,
+            "font_color": font_color,
+            "alignment": "left",
+            "line_height": 1.3,
+            "section_type": current_section if not is_header else f"header_{current_section}",
+            "confidence_score": 1.0,
+            "lines": lines_list
+        })
+        current_y += block_h
+        
+    if page_blocks:
+        pages.append({
+            "page_num": page_num,
+            "width": page_width,
+            "height": page_height,
+            "blocks": page_blocks
+        })
+        
+    return {"pages": pages, "metadata": {"format": "text"}}
+
 def parse_to_rdom(file_bytes: bytes, filename: str) -> Dict[str, Any]:
-    """Orchestrates layout parsing for PDF and DOCX documents."""
+    """Orchestrates layout parsing for PDF, DOCX, and text documents."""
     if filename.lower().endswith(".pdf"):
         return parse_pdf_to_rdom(file_bytes)
     elif filename.lower().endswith(".docx"):
@@ -259,7 +371,7 @@ def parse_to_rdom(file_bytes: bytes, filename: str) -> Dict[str, Any]:
             raw_text = file_bytes.decode("utf-8")
         except Exception:
             raw_text = str(file_bytes)
-        return parse_docx_to_rdom(raw_text.encode("utf-8"))
+        return parse_text_to_rdom(raw_text)
 
 def generate_reconstruction_suggestions(rdom: Dict[str, Any], target_role: str, jd_text: str = "") -> List[Dict[str, Any]]:
     """

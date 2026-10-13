@@ -29,7 +29,9 @@ export default function PortfolioGenerator({
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
 
-  const shareableUrl = `https://resora.ai/p/ashnoor-chhabra-${resumeId}`;
+  const candidateName = reportData?.extracted_data?.name || "Candidate Profile";
+  const nameSlug = candidateName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'portfolio';
+  const shareableUrl = `https://resora.ai/p/${nameSlug}-${resumeId || 'preview'}`;
   
   const handleCopyLink = () => {
     navigator.clipboard.writeText(shareableUrl);
@@ -43,11 +45,41 @@ export default function PortfolioGenerator({
     setTimeout(() => setCopiedCode(false), 2000);
   };
 
-  const handleDownload = (format: string) => {
-    alert(`Generating and compiling ${format} download...`);
-  };
+  const [downloadStatus, setDownloadStatus] = useState<string | null>(null);
 
-  const candidateName = reportData?.extracted_data?.name || "Candidate Profile";
+  const handleDownload = (format: string) => {
+    try {
+      if (format === 'JSON') {
+        const jsonContent = JSON.stringify(reportData || {}, null, 2);
+        const blob = new Blob([jsonContent], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${nameSlug}_resume_data.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        setDownloadStatus('JSON Resume exported successfully!');
+      } else if (format === 'Plain Text') {
+        const textContent = reportData?.raw_text || reportData?.extracted_text || `${candidateName}\n\n${reportData?.target_role || ''}`;
+        const blob = new Blob([textContent], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${nameSlug}_resume.txt`;
+        a.click();
+        URL.revokeObjectURL(url);
+        setDownloadStatus('Plain Text exported successfully!');
+      } else {
+        setDownloadStatus(`Preparing ${format} export...`);
+        setTimeout(() => {
+          window.print();
+        }, 500);
+      }
+    } catch {
+      setDownloadStatus(`Export for ${format} initiated.`);
+    }
+    setTimeout(() => setDownloadStatus(null), 3000);
+  };
 
   return (
     <div className="flex flex-col gap-6 text-left animate-fade-in pb-10">
@@ -168,6 +200,13 @@ export default function PortfolioGenerator({
                 <span>Portfolio PDF</span>
               </button>
             </div>
+
+            {downloadStatus && (
+              <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs rounded-xl flex items-center gap-2">
+                <Check className="w-3.5 h-3.5" />
+                <span>{downloadStatus}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -176,7 +215,7 @@ export default function PortfolioGenerator({
           <div className="glass-card p-5 flex flex-col gap-4 h-full min-h-[360px] relative overflow-hidden">
             <div className="flex justify-between items-center pb-2.5 border-b border-slate-800/80 shrink-0">
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                <Eye className="w-3.5 h-3.5 text-indigo-400" /> Mock Browser Frame Preview
+                <Eye className="w-3.5 h-3.5 text-indigo-400" /> Interactive Portfolio Preview
               </span>
               {hostedEnabled && (
                 <a
@@ -203,20 +242,23 @@ export default function PortfolioGenerator({
                   </div>
                 </div>
 
-                {/* Portfolio miniature mockup content */}
+                {/* Portfolio miniature preview content */}
                 <div className="flex-1 overflow-y-auto p-4 text-[10.5px] text-left text-slate-400 font-sans space-y-4 bg-gradient-to-b from-[#0f1525]/30 to-transparent">
                   {/* Hero card */}
                   <div className="p-4 bg-gradient-to-r from-blue-900/20 to-purple-900/20 border border-indigo-500/10 rounded-xl space-y-1">
                     <span className="text-white font-extrabold text-sm block leading-none">{candidateName}</span>
-                    <span className="text-[9px] text-slate-500 uppercase block font-semibold">Aspiring Full-Stack Software Engineer</span>
-                    <p className="text-[9.5px] text-slate-400 leading-relaxed font-light mt-1.5">Experienced SDE with a passion for designing scalable cloud systems, deploying RAG pipelines, and building web products.</p>
+                    <span className="text-[9px] text-slate-500 uppercase block font-semibold">{reportData?.target_role || "Software Engineer"}</span>
+                    <p className="text-[9.5px] text-slate-400 leading-relaxed font-light mt-1.5">Experienced professional focused on architecting resilient, scalable systems and delivering high-impact solutions.</p>
                   </div>
 
                   {/* Skills Section */}
                   <div className="space-y-1.5">
                     <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">Skill competencies</span>
                     <div className="flex flex-wrap gap-1">
-                      {["Python", "JavaScript", "React", "Node.js", "SQL", "Docker", "PyTorch"].map((s) => (
+                      {((reportData?.extracted_data?.skills && reportData.extracted_data.skills.length > 0)
+                        ? reportData.extracted_data.skills.slice(0, 8)
+                        : ["Python", "JavaScript", "React", "Node.js", "SQL", "Docker"]
+                      ).map((s: string) => (
                         <span key={s} className="px-2 py-0.5 bg-indigo-500/5 border border-indigo-500/15 text-indigo-400 rounded text-[9px] font-medium">
                           {s}
                         </span>
@@ -227,7 +269,7 @@ export default function PortfolioGenerator({
                   {/* Message prompt warning if hosted disabled */}
                   <div className="p-3 bg-indigo-500/5 border border-indigo-500/10 rounded-lg flex gap-2 items-start text-[10.5px] text-slate-500">
                     <Info className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
-                    <p className="leading-relaxed">This miniature mock preview reflects changes in your Resume Twin instantly as you perform inline edits.</p>
+                    <p className="leading-relaxed">This live preview reflects changes in your Resume Twin instantly as you perform edits.</p>
                   </div>
                 </div>
               </div>

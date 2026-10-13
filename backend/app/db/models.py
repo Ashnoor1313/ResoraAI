@@ -16,6 +16,10 @@ class User(Base):
     target_industry = Column(String, default="tech", server_default="tech")
     priorities = Column(JSON, nullable=True)
     
+    # Subscription Plan
+    plan = Column(String, default="Free", server_default="Free")
+    plan_updated_at = Column(DateTime, nullable=True)
+    
     resumes = relationship("Resume", back_populates="user", cascade="all, delete-orphan")
 
 class Resume(Base):
@@ -85,5 +89,24 @@ class UserSession(Base):
     login_time = Column(DateTime, default=datetime.datetime.utcnow)
     is_active = Column(Integer, default=1, server_default="1") # 1 for active, 0 for revoked
     last_activity = Column(DateTime, default=datetime.datetime.utcnow)
+    
+    user = relationship("User")
+
+class JobApplication(Base):
+    __tablename__ = "job_applications"
+    
+    id = Column(String, primary_key=True, index=True)
+    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    title = Column(String, nullable=False)
+    company = Column(String, nullable=False)
+    salary = Column(String, nullable=True)
+    location = Column(String, nullable=True)
+    status = Column(String, default="applied") # applied, interviewing, offer, rejected
+    date = Column(String, nullable=False)
+    link = Column(String, nullable=True)
+    notes = Column(Text, nullable=True)
+    match_score = Column(Float, nullable=True)
+    skills = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
     
     user = relationship("User")

@@ -33,9 +33,18 @@ interface StructExperience {
 
 interface StructProject {
   name: string;
+  techStack?: string;
   date: string;
   link: string;
   bullets: string[];
+}
+
+interface StructEducation {
+  school: string;
+  degree: string;
+  year: string;
+  gpa: string;
+  location: string;
 }
 
 // Extract summary block from raw text
@@ -82,134 +91,409 @@ const getSummaryFromRawText = (rawText: string): string => {
   return "";
 };
 
-// Parse flat experience lines into structured items
+// Standard patterns for resume parsing
+const DATE_MATCH_REGEX = /(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December|\d{4})[\s,./\u2013\u2014\-]+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December|Present|Current|\d{4}|\d{2})|(?:\d{1,2}\/\d{4}|\d{4})\s*[\u2013\u2014\-]\s*(?:\d{1,2}\/\d{4}|\d{4}|Present|Current)|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4})/i;
+
+const ROLE_KEYWORDS = [
+  'engineer', 'developer', 'intern', 'architect', 'lead', 'manager', 'specialist',
+  'analyst', 'consultant', 'scientist', 'designer', 'administrator', 'officer',
+  'associate', 'director', 'founder', 'swe', 'sde', 'devops', 'fellow', 'head', 'co-founder'
+];
+
+const LOCATION_KEYWORDS = [
+  'india', 'delhi', 'gurugram', 'haryana', 'noida', 'bengaluru', 'bangalore',
+  'mumbai', 'hyderabad', 'pune', 'chennai', 'kolkata', 'remote', 'usa', 'ca', 'ny',
+  'san francisco', 'london', 'ludhiana', 'chandigarh'
+];
+
+const ACTION_VERBS = new Set([
+  'built', 'developed', 'engineered', 'contributed', 'designed', 'implemented',
+  'architected', 'created', 'worked', 'collaborated', 'led', 'managed',
+  'reduced', 'increased', 'optimized', 'spearheaded', 'automated', 'delivered',
+  'integrated', 'deployed', 'researched', 'maintained', 'trained', 'analyzed',
+  'orchestrated', 'streamlined', 'formulated', 'authored', 'configured',
+  'established', 'participated', 'utilized', 'leveraged', 'facilitated', 'executed',
+  'solved', 'improved', 'achieved', 'enhanced', 'boosted', 'tested', 'debugged'
+]);
+
+const BULLET_CHARS = ['\u2022', '•', '-', '*', '▪', '◦', '●', '■', '+', '–', '—', '\ufffd'];
+
+const hasBulletPrefix = (line: string): boolean => {
+  const l = line.trim();
+  return BULLET_CHARS.some(c => l.startsWith(c));
+};
+
+const cleanBullet = (line: string): string => {
+  let l = line.trim();
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const c of BULLET_CHARS) {
+      if (l.startsWith(c)) {
+        l = l.substring(c.length).trim();
+        changed = true;
+      }
+    }
+  }
+  return l;
+};
+
+const isDateLine = (line: string): boolean => {
+  const cleaned = cleanBullet(line);
+  return cleaned.length < 50 && DATE_MATCH_REGEX.test(cleaned);
+};
+
+const isLocationLine = (line: string): boolean => {
+  const cleaned = cleanBullet(line).toLowerCase();
+  return cleaned.length < 55 && (LOCATION_KEYWORDS.some(loc => cleaned.includes(loc)) || /^[a-z\s]+,\s*[a-z\s]+$/.test(cleaned));
+};
+
+const isRoleLine = (line: string): boolean => {
+  const cleaned = cleanBullet(line).toLowerCase();
+  return cleaned.length < 75 && ROLE_KEYWORDS.some(kw => new RegExp('\\b' + kw + '\\b').test(cleaned));
+};
+
+const isActionVerb = (line: string): boolean => {
+  const cleaned = cleanBullet(line).toLowerCase();
+  const firstWord = cleaned.split(/\s+/)[0]?.replace(/[^a-z]/g, '') || '';
+  return ACTION_VERBS.has(firstWord);
+};
+
+const isContinuationLine = (line: string): boolean => {
+  const l = line.trim();
+  if (!l) return false;
+  if (l[0] >= 'a' && l[0] <= 'z') return true;
+  return /^(and|or|with|by|for|to|in|of|using|reducing|improving|featuring|along)\s+/i.test(l);
+};
+
+const isLinkLine = (line: string): boolean => {
+  const cleaned = cleanBullet(line).toLowerCase();
+  const linkWords = ['github', 'gitlab', 'live demo', 'demo', 'preview', 'http', 'https', 'link', 'portfolio'];
+  return cleaned.length < 60 && linkWords.some(w => cleaned.includes(w));
+};
+
+// Parse flat experience lines into cleanly structured items
 const structureExperience = (expLines: string[] = []): StructExperience[] => {
   const items: StructExperience[] = [];
-  let currentItem: StructExperience | null = null;
-  const dateRegex = /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|June|July|August|September|October|November|December|\d{4})\s*(?:–|-|—)\s*(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|June|July|August|September|October|November|December|Present|\d{4})/i;
+  let curr: StructExperience | null = null;
 
-  for (let i = 0; i < expLines.length; i++) {
+  let i = 0;
+  while (i < expLines.length) {
     const line = expLines[i].trim();
-    if (!line) continue;
+    if (!line) {
+      i++;
+      continue;
+    }
 
-    if (line.startsWith('•') || line.startsWith('\u2022')) {
-      if (currentItem) {
-        items.push(currentItem);
+    const bPrefix = hasBulletPrefix(line);
+    const cleaned = cleanBullet(line);
+    const act = isActionVerb(line);
+
+    let isNewExp = false;
+    if (!curr) {
+      isNewExp = true;
+    } else if (isRoleLine(line) && !bPrefix && !act) {
+      isNewExp = true;
+    } else if (curr.bullets.length > 0) {
+      if (!isContinuationLine(line) && !act) {
+        if (isRoleLine(line) || isDateLine(line) || (i + 1 < expLines.length && (isDateLine(expLines[i+1]) || isRoleLine(expLines[i+1])))) {
+          isNewExp = true;
+        }
       }
-      
-      const company = line.replace(/^[•\u2022]\s*/, '').trim();
-      const dateRange = expLines[i + 1] ? expLines[i + 1].trim() : "";
-      const title = expLines[i + 2] ? expLines[i + 2].trim() : "";
-      const location = expLines[i + 3] ? expLines[i + 3].trim() : "";
-      
-      currentItem = {
-        company,
-        dateRange,
-        title,
-        location,
-        description: "",
+    } else if (bPrefix && !act && cleaned.length < 60 && i + 1 < expLines.length && isDateLine(expLines[i+1])) {
+      isNewExp = true;
+    }
+
+    if (isNewExp) {
+      if (curr) {
+        items.push(curr);
+      }
+      curr = {
+        title: '',
+        company: '',
+        dateRange: '',
+        location: '',
+        description: '',
         bullets: []
       };
-      
-      i += 3;
-    } else if (currentItem) {
-      if (line.startsWith('–') || line.startsWith('\u2013') || line.startsWith('-')) {
-        const cleanedBullet = line.replace(/^[–\u2013\-]\s*/, '').trim();
-        currentItem.bullets.push(cleanedBullet);
+
+      const metaLines = [cleaned];
+      let j = i + 1;
+      while (j < expLines.length) {
+        const nextL = expLines[j].trim();
+        if (!nextL) {
+          j++;
+          continue;
+        }
+        if (hasBulletPrefix(nextL) && (isActionVerb(nextL) || nextL.length > 60)) {
+          break;
+        }
+        if (isDateLine(nextL) || isLocationLine(nextL) || isRoleLine(nextL) || nextL.length < 50) {
+          metaLines.push(cleanBullet(nextL));
+          j++;
+        } else {
+          break;
+        }
+      }
+
+      for (const m of metaLines) {
+        if (!curr.dateRange && isDateLine(m)) {
+          curr.dateRange = m;
+        } else if (!curr.location && isLocationLine(m)) {
+          curr.location = m;
+        } else if (!curr.title && isRoleLine(m)) {
+          curr.title = m;
+        } else if (!curr.company) {
+          curr.company = m;
+        } else if (!curr.title) {
+          curr.title = m;
+        } else if (!curr.location) {
+          curr.location = m;
+        }
+      }
+
+      if (!curr.title && curr.company) {
+        curr.title = curr.company;
+        curr.company = '';
+      }
+
+      // If title or company contains separators like ' | ' or ' - '
+      if (curr.title && curr.title.includes(' | ') && !curr.company) {
+        const parts = curr.title.split(' | ');
+        curr.title = parts[0].trim();
+        curr.company = parts.slice(1).join(' | ').trim();
+      }
+
+      i = j;
+      continue;
+    }
+
+    if (!curr) {
+      curr = {
+        title: 'Role',
+        company: '',
+        dateRange: '',
+        location: '',
+        description: '',
+        bullets: []
+      };
+    }
+    const currentExp: StructExperience = curr;
+    if (bPrefix) {
+      currentExp.bullets.push(cleaned);
+    } else {
+      if (currentExp.bullets.length > 0) {
+        currentExp.bullets[currentExp.bullets.length - 1] += ' ' + line;
       } else {
-        if (currentItem.bullets.length > 0) {
-          const lastIdx = currentItem.bullets.length - 1;
-          currentItem.bullets[lastIdx] = currentItem.bullets[lastIdx] + " " + line;
-        } else {
-          currentItem.bullets.push(line);
-        }
+        currentExp.bullets.push(cleaned);
       }
     }
+    i++;
   }
 
-  if (currentItem) {
-    items.push(currentItem);
+  if (curr) {
+    items.push(curr);
   }
 
-  // Refine each item to extract a description from the first bullet containing a semicolon
-  return items.map(item => {
-    let description = "";
-    let bullets = [...item.bullets];
-    
-    if (bullets.length > 0) {
-      const firstBullet = bullets[0];
-      if (firstBullet.includes(';')) {
-        const parts = firstBullet.split(';');
-        description = parts[0].trim();
-        if (!description.endsWith('.')) {
-          description += '.';
-        }
-        
-        const rest = parts.slice(1).join(';').trim();
-        if (rest) {
-          const capitalizedRest = rest.charAt(0).toUpperCase() + rest.slice(1);
-          bullets[0] = capitalizedRest;
-        } else {
-          bullets.shift();
-        }
-      }
-    }
-    
-    return {
-      ...item,
-      description: description || item.description,
-      bullets
-    };
-  });
+  return items;
 };
 
 // Parse flat project lines into structured items
 const structureProjects = (projLines: string[] = []): StructProject[] => {
   const items: StructProject[] = [];
-  let currentItem: StructProject | null = null;
-  
-  for (let i = 0; i < projLines.length; i++) {
+  let curr: StructProject | null = null;
+
+  let i = 0;
+  while (i < projLines.length) {
     const line = projLines[i].trim();
-    if (!line) continue;
-    
-    if (line.startsWith('•') || line.startsWith('\u2022')) {
-      if (currentItem) {
-        items.push(currentItem);
+    if (!line) {
+      i++;
+      continue;
+    }
+
+    const bPrefix = hasBulletPrefix(line);
+    const cleaned = cleanBullet(line);
+    const dt = isDateLine(line);
+    const lnk = isLinkLine(line);
+    const act = isActionVerb(line);
+
+    let isNewProj = false;
+    if (!curr) {
+      isNewProj = true;
+    } else if (!bPrefix && !act && !dt && !lnk) {
+      if (line.includes('|') || (i + 1 < projLines.length && (isDateLine(projLines[i+1]) || isLinkLine(projLines[i+1])))) {
+        isNewProj = true;
+      } else if (curr.bullets.length > 0 && line.length < 65 && !isContinuationLine(line)) {
+        isNewProj = true;
       }
-      
-      const name = line.replace(/^[•\u2022]\s*/, '').trim();
-      const date = projLines[i + 1] ? projLines[i + 1].trim() : "";
-      const link = projLines[i + 2] ? projLines[i + 2].trim() : "";
-      
-      currentItem = {
+    } else if (bPrefix && !act && cleaned.length < 65 && i + 1 < projLines.length && (isDateLine(projLines[i+1]) || isLinkLine(projLines[i+1]))) {
+      isNewProj = true;
+    }
+
+    if (isNewProj) {
+      if (curr) {
+        items.push(curr);
+      }
+
+      let name = cleaned;
+      let techStack = '';
+      let date = '';
+      let link = '';
+
+      if (name.includes(' | ')) {
+        const parts = name.split(' | ');
+        name = parts[0].trim();
+        techStack = parts.slice(1).join(' | ').trim();
+      } else if (name.includes(' – ') && !isDateLine(name)) {
+        const parts = name.split(' – ');
+        name = parts[0].trim();
+        techStack = parts.slice(1).join(' – ').trim();
+      } else if (name.includes(' - ') && !isDateLine(name)) {
+        const parts = name.split(' - ');
+        name = parts[0].trim();
+        techStack = parts.slice(1).join(' - ').trim();
+      }
+
+      curr = {
         name,
-        date,
+        techStack,
         link,
+        date,
         bullets: []
       };
-      
-      i += 2;
-    } else if (currentItem) {
-      if (line.startsWith('–') || line.startsWith('\u2013') || line.startsWith('-')) {
-        const cleanedBullet = line.replace(/^[–\u2013\-]\s*/, '').trim();
-        currentItem.bullets.push(cleanedBullet);
-      } else {
-        if (currentItem.bullets.length > 0) {
-          const lastIdx = currentItem.bullets.length - 1;
-          currentItem.bullets[lastIdx] = currentItem.bullets[lastIdx] + " " + line;
+
+      let j = i + 1;
+      while (j < projLines.length) {
+        const nextL = projLines[j].trim();
+        if (!nextL) {
+          j++;
+          continue;
+        }
+        if (hasBulletPrefix(nextL) && (isActionVerb(nextL) || nextL.length > 60)) {
+          break;
+        }
+        if (isDateLine(nextL)) {
+          if (!curr.date) curr.date = cleanBullet(nextL);
+          j++;
+        } else if (isLinkLine(nextL)) {
+          if (curr.link) {
+            curr.link = curr.link + ' | ' + cleanBullet(nextL);
+          } else {
+            curr.link = cleanBullet(nextL);
+          }
+          j++;
         } else {
-          currentItem.bullets.push(line);
+          break;
         }
       }
+      i = j;
+      continue;
+    }
+
+    if (!curr) {
+      curr = {
+        name: 'Project',
+        techStack: '',
+        date: '',
+        link: '',
+        bullets: []
+      };
+    }
+    const currentProj: StructProject = curr;
+    if (bPrefix) {
+      currentProj.bullets.push(cleaned);
+    } else {
+      if (currentProj.bullets.length > 0) {
+        currentProj.bullets[currentProj.bullets.length - 1] += ' ' + line;
+      } else {
+        currentProj.bullets.push(cleaned);
+      }
+    }
+    i++;
+  }
+
+  if (curr) {
+    items.push(curr);
+  }
+
+  return items.filter(item => item.name && item.name.trim().length > 0);
+};
+
+// Parse flat education lines into clean items
+const structureEducation = (eduLines: string[] = []): StructEducation[] => {
+  if (!eduLines || eduLines.length === 0) return [];
+  const items: StructEducation[] = [];
+  const eduChunks: string[][] = [];
+  let currentChunk: string[] = [];
+
+  const SCHOOL_WORDS = ['university', 'college', 'institute', 'school', 'academy', 'vidyalaya'];
+  const DEGREE_WORDS = ['b.tech', 'btech', 'bachelor', 'master', 'b.s', 'm.s', 'm.tech', 'cbse', 'icse', 'diploma', 'ph.d', 'degree', 'high school', 'secondary'];
+
+  for (let i = 0; i < eduLines.length; i++) {
+    const line = eduLines[i].trim();
+    if (!line) continue;
+
+    const isSchool = SCHOOL_WORDS.some(w => line.toLowerCase().includes(w));
+    if (isSchool && currentChunk.length >= 2) {
+      eduChunks.push(currentChunk);
+      currentChunk = [line];
+    } else {
+      currentChunk.push(line);
     }
   }
-  
-  if (currentItem) {
-    items.push(currentItem);
+  if (currentChunk.length > 0) {
+    eduChunks.push(currentChunk);
   }
-  
+
+  for (const chunk of eduChunks) {
+    let school = '';
+    let degree = '';
+    let year = '';
+    let gpa = '';
+    let location = '';
+
+    for (const line of chunk) {
+      const lower = line.toLowerCase();
+      if (!year && (DATE_MATCH_REGEX.test(line) && line.length < 30 && !lower.includes('b.tech') && !lower.includes('cbse'))) {
+        year = line;
+      } else if (!gpa && (lower.includes('cgpa') || lower.includes('gpa') || /%\s*$/.test(line) || /grade/i.test(line))) {
+        if (lower.includes(';')) {
+          const parts = line.split(';');
+          degree = parts[0].trim();
+          gpa = parts.slice(1).join(';').trim();
+        } else if (lower.includes(' – ') || lower.includes(' - ')) {
+          const parts = line.split(/\s*[\u2013\u2014\-]\s*/);
+          if (parts[0] && DEGREE_WORDS.some(d => parts[0].toLowerCase().includes(d))) {
+            degree = parts[0].trim();
+            gpa = parts.slice(1).join(' - ').trim();
+          } else {
+            gpa = line;
+          }
+        } else {
+          gpa = line;
+        }
+      } else if (!degree && DEGREE_WORDS.some(w => lower.includes(w))) {
+        degree = line;
+      } else if (!school && SCHOOL_WORDS.some(w => lower.includes(w))) {
+        school = line;
+      } else if (!location && (line.includes(',') || line.length < 30)) {
+        location = line;
+      } else if (!degree) {
+        degree = line;
+      } else if (!school) {
+        school = line;
+      }
+    }
+
+    if (!school && chunk[0]) school = chunk[0];
+    if (!degree && chunk[1]) degree = chunk[1];
+
+    items.push({ school, degree, year, gpa, location });
+  }
+
   return items;
 };
+
 
 // Categorize skills list
 const categorizeSkills = (skills: string[] = []) => {
@@ -351,17 +635,20 @@ export default function ParserSimulator({
   const projects = structureProjects(extractedData.projects || []);
   const skillsCategorized = categorizeSkills(extractedData.skills || []);
   
-  const headerBio = extractedData.name && extractedData.name.toLowerCase().includes("ashnoor")
-    ? "Aspiring Full-Stack Software Engineer with a strong foundation in AI/ML, skilled in Python, React, Node.js, and cloud technologies. Proven ability to build scalable, data-driven applications and automate workflows, enhancing operational efficiency."
-    : `Skilled ${targetRole} with a strong foundation in modern architectures, proficient in ${extractedData.skills.slice(0, 4).join(', ')}. Proven ability to design clean components, optimize database layers, and automate deployment workflows.`;
+  const candidateSkills = extractedData.skills || [];
+  const primaryRole = targetRole || (experiences.length > 0 && experiences[0].title ? experiences[0].title : 'Software Engineer');
+
+  const headerBio = candidateSkills.length > 0
+    ? `Accomplished ${primaryRole} specializing in ${candidateSkills.slice(0, 5).join(', ')}. Proven ability to architect reliable systems, optimize workflows, and engineer scalable production solutions.`
+    : `Results-driven ${primaryRole} with a proven track record of designing robust architectures, leading impactful projects, and driving technical excellence.`;
 
   const professionalSummary = getSummaryFromRawText(rawText) || 
-    (extractedData.name && extractedData.name.toLowerCase().includes("ashnoor")
-      ? "I am an enthusiastic aspiring Software Development Engineer with hands-on experience in building full-stack web applications and integrating AI/ML capabilities. My expertise spans Python, JavaScript, modern frameworks like React and Node.js, and databases, allowing me to develop scalable, efficient, and data-driven solutions. As a recognized leader and AI Masters Lead, I excel in driving team collaboration, delivering impactful projects, and consistently improving operational efficiency through innovative technology."
-      : `I am an enthusiastic and results-driven ${targetRole} with practical experience building scalable solutions and leveraging AI/ML workflows. My technical expertise spans ${extractedData.skills.slice(0, 5).join(', ')}, enabling me to design and implement efficient, data-centric web architectures. I excel at working in collaborative environments, solving complex optimization challenges, and delivering high-quality engineering outcomes.`);
+    `Results-driven and impact-focused ${primaryRole} with practical experience building scalable applications and streamlining engineering workflows. Technical expertise includes ${candidateSkills.slice(0, 6).join(', ') || 'modern software engineering best practices'}, with demonstrated success collaborating across cross-functional teams to deliver high-performance, user-centric systems.`;
 
-  const interviewTips = getInterviewTips(extractedData.skills, targetRole, recruiterFeedback);
-  const location = experiences.length > 0 ? experiences[0].location : "New Delhi, India";
+  const interviewTips = getInterviewTips(candidateSkills, primaryRole, recruiterFeedback);
+  const location = experiences.find(e => e.location)?.location || 
+    (extractedData.education?.length ? structureEducation(extractedData.education).find(e => e.location)?.location : "") || 
+    "Remote / Flexible";
 
   const tabs = [
     { id: 'structured', label: 'Extracted Portfolio', icon: Eye },
@@ -371,7 +658,7 @@ export default function ParserSimulator({
   return (
     <div className="glass-card overflow-hidden flex flex-col">
       {/* Tabs */}
-      <div className="flex items-center border-b border-[#1e2740] px-5 bg-[#0f1525]/30">
+      <div className="flex items-center border-b border-slate-200 dark:border-[#1e2740] px-5 bg-slate-50/70 dark:bg-[#0f1525]/30">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           return (
@@ -380,8 +667,8 @@ export default function ParserSimulator({
               onClick={() => setActiveTab(tab.id)}
               className={`py-3 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 mr-5 ${
                 activeTab === tab.id 
-                  ? 'border-indigo-500 text-indigo-400' 
-                  : 'border-transparent text-slate-500 hover:text-slate-300'
+                  ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' 
+                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
               }`}
             >
               <Icon className="w-3.5 h-3.5" />
@@ -414,9 +701,7 @@ export default function ParserSimulator({
                 </h2>
                 
                 <p className="text-sm font-semibold text-blue-200 uppercase tracking-wide">
-                  {extractedData.name && extractedData.name.toLowerCase().includes("ashnoor") 
-                    ? "Aspiring Full-Stack AI/ML Engineer | Building Scalable Web Applications"
-                    : targetRole}
+                  {primaryRole}
                 </p>
                 
                 <p className="text-xs text-indigo-100/90 leading-relaxed max-w-2xl mt-4 font-normal">
@@ -451,13 +736,13 @@ export default function ParserSimulator({
               
               {/* Professional Summary */}
               <div className="md:col-span-7 flex flex-col">
-                <div className="border border-[#1e2740] bg-[#0c1222]/30 rounded-2xl p-6 flex flex-col justify-between h-full">
+                <div className="border border-slate-200 dark:border-[#1e2740] bg-white dark:bg-[#0c1222]/30 rounded-2xl p-6 flex flex-col justify-between h-full shadow-sm">
                   <div>
-                    <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[#1e2740]">
-                      <Target className="w-4.5 h-4.5 text-indigo-400" />
-                      <h3 className="font-bold text-sm text-slate-200 uppercase tracking-wider">Professional Summary</h3>
+                    <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-200 dark:border-[#1e2740]">
+                      <Target className="w-4.5 h-4.5 text-indigo-500 dark:text-indigo-400" />
+                      <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200 uppercase tracking-wider">Professional Summary</h3>
                     </div>
-                    <p className="text-xs text-slate-400 leading-relaxed font-normal">
+                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed font-normal">
                       {professionalSummary}
                     </p>
                   </div>
@@ -466,15 +751,15 @@ export default function ParserSimulator({
 
               {/* Interview Tips */}
               <div className="md:col-span-5 flex flex-col">
-                <div className="border border-[#8c5a2c]/20 bg-[#16100d]/40 rounded-2xl p-6 flex flex-col justify-between h-full">
+                <div className="border border-amber-200 dark:border-[#8c5a2c]/20 bg-amber-50/70 dark:bg-[#16100d]/40 rounded-2xl p-6 flex flex-col justify-between h-full shadow-sm">
                   <div>
-                    <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[#8c5a2c]/25">
+                    <div className="flex items-center gap-2 mb-4 pb-3 border-b border-amber-200 dark:border-[#8c5a2c]/25">
                       <Trophy className="w-4.5 h-4.5 text-amber-500" />
-                      <h3 className="font-bold text-sm text-amber-400 uppercase tracking-wider">Interview Tips</h3>
+                      <h3 className="font-bold text-sm text-amber-700 dark:text-amber-400 uppercase tracking-wider">Interview Tips</h3>
                     </div>
                     <div className="space-y-4">
                       {interviewTips.map((tip, i) => (
-                        <div key={i} className="flex gap-2.5 text-xs text-slate-300 items-start">
+                        <div key={i} className="flex gap-2.5 text-xs text-slate-700 dark:text-slate-300 items-start">
                           <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500 shrink-0 mt-0.5" />
                           <p className="leading-relaxed font-normal">{tip}</p>
                         </div>
@@ -491,11 +776,11 @@ export default function ParserSimulator({
               
               {/* Technical Skills */}
               <div className="md:col-span-7 flex flex-col">
-                <div className="border border-[#1e2740] bg-[#0c1222]/30 rounded-2xl p-6 h-full flex flex-col justify-between">
+                <div className="border border-slate-200 dark:border-[#1e2740] bg-white dark:bg-[#0c1222]/30 rounded-2xl p-6 h-full flex flex-col justify-between shadow-sm">
                   <div>
-                    <div className="flex items-center gap-2 mb-5 pb-3 border-b border-[#1e2740]">
-                      <Code className="w-4.5 h-4.5 text-indigo-400" />
-                      <h3 className="font-bold text-sm text-slate-200 uppercase tracking-wider">Technical Skills</h3>
+                    <div className="flex items-center gap-2 mb-5 pb-3 border-b border-slate-200 dark:border-[#1e2740]">
+                      <Code className="w-4.5 h-4.5 text-indigo-500 dark:text-indigo-400" />
+                      <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200 uppercase tracking-wider">Technical Skills</h3>
                     </div>
 
                     <div className="space-y-5 text-left">
@@ -503,12 +788,12 @@ export default function ParserSimulator({
                       {skillsCategorized.languages.length > 0 && (
                         <div>
                           <div className="flex items-center gap-1.5 mb-2.5">
-                            <Code className="w-3.5 h-3.5 text-indigo-400" />
-                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">LANGUAGES</span>
+                            <Code className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">LANGUAGES</span>
                           </div>
                           <div className="flex flex-wrap gap-1.5">
                             {skillsCategorized.languages.map((s) => (
-                              <span key={s} className="px-3 py-1 bg-[#151c2f] border border-[#232d4b] rounded-full text-xs text-indigo-300 font-medium">
+                              <span key={s} className="px-3 py-1 bg-indigo-50 dark:bg-[#151c2f] border border-indigo-100 dark:border-[#232d4b] rounded-full text-xs text-indigo-700 dark:text-indigo-300 font-semibold shadow-xs">
                                 {s}
                               </span>
                             ))}
@@ -520,12 +805,12 @@ export default function ParserSimulator({
                       {skillsCategorized.frameworks.length > 0 && (
                         <div>
                           <div className="flex items-center gap-1.5 mb-2.5">
-                            <Layers className="w-3.5 h-3.5 text-indigo-400" />
-                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">FRAMEWORKS</span>
+                            <Layers className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">FRAMEWORKS</span>
                           </div>
                           <div className="flex flex-wrap gap-1.5">
                             {skillsCategorized.frameworks.map((s) => (
-                              <span key={s} className="px-3 py-1 bg-[#151c2f] border border-[#232d4b] rounded-full text-xs text-indigo-300 font-medium">
+                              <span key={s} className="px-3 py-1 bg-indigo-50 dark:bg-[#151c2f] border border-indigo-100 dark:border-[#232d4b] rounded-full text-xs text-indigo-700 dark:text-indigo-300 font-semibold shadow-xs">
                                 {s}
                               </span>
                             ))}
@@ -537,12 +822,12 @@ export default function ParserSimulator({
                       {skillsCategorized.databases.length > 0 && (
                         <div>
                           <div className="flex items-center gap-1.5 mb-2.5">
-                            <Cloud className="w-3.5 h-3.5 text-indigo-400" />
-                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">CLOUD & DATABASES</span>
+                            <Cloud className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">CLOUD & DATABASES</span>
                           </div>
                           <div className="flex flex-wrap gap-1.5">
                             {skillsCategorized.databases.map((s) => (
-                              <span key={s} className="px-3 py-1 bg-[#151c2f] border border-[#232d4b] rounded-full text-xs text-indigo-300 font-medium">
+                              <span key={s} className="px-3 py-1 bg-indigo-50 dark:bg-[#151c2f] border border-indigo-100 dark:border-[#232d4b] rounded-full text-xs text-indigo-700 dark:text-indigo-300 font-semibold shadow-xs">
                                 {s}
                               </span>
                             ))}
@@ -554,12 +839,12 @@ export default function ParserSimulator({
                       {skillsCategorized.tools.length > 0 && (
                         <div>
                           <div className="flex items-center gap-1.5 mb-2.5">
-                            <Wrench className="w-3.5 h-3.5 text-indigo-400" />
-                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">TOOLS & METHODS</span>
+                            <Wrench className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">TOOLS & METHODS</span>
                           </div>
                           <div className="flex flex-wrap gap-1.5 max-h-[180px] overflow-y-auto pr-1">
                             {skillsCategorized.tools.map((s) => (
-                              <span key={s} className="px-3 py-1 bg-[#151c2f] border border-[#232d4b] rounded-full text-xs text-indigo-300 font-medium">
+                              <span key={s} className="px-3 py-1 bg-indigo-50 dark:bg-[#151c2f] border border-indigo-100 dark:border-[#232d4b] rounded-full text-xs text-indigo-700 dark:text-indigo-300 font-semibold shadow-xs">
                                 {s}
                               </span>
                             ))}
@@ -573,47 +858,47 @@ export default function ParserSimulator({
 
               {/* Match Optimizer */}
               <div className="md:col-span-5 flex flex-col">
-                <div className="border border-[#1e2740] bg-[#0c1222]/30 rounded-2xl p-6 h-full flex flex-col justify-between">
+                <div className="border border-slate-200 dark:border-[#1e2740] bg-white dark:bg-[#0c1222]/30 rounded-2xl p-6 h-full flex flex-col justify-between shadow-sm">
                   <form onSubmit={handleOptimizeScan} className="flex flex-col h-full justify-between gap-4">
                     <div>
-                      <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[#1e2740]">
-                        <Target className="w-4.5 h-4.5 text-indigo-400" />
-                        <h3 className="font-bold text-sm text-slate-200 uppercase tracking-wider">ATS Match Optimizer</h3>
+                      <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-200 dark:border-[#1e2740]">
+                        <Target className="w-4.5 h-4.5 text-indigo-500 dark:text-indigo-400" />
+                        <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200 uppercase tracking-wider">ATS Match Optimizer</h3>
                       </div>
                       
                       <div className="space-y-4">
                         <div>
-                          <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block mb-1">Target Job Title</label>
+                          <label className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider block mb-1">Target Job Title</label>
                           <input 
                             type="text" 
                             value={optTitle} 
                             onChange={(e) => setOptTitle(e.target.value)} 
                             placeholder="e.g. Senior Frontend Engineer" 
-                            className="w-full bg-[#070b13] border border-[#1e2740] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 text-slate-200 font-sans" 
+                            className="w-full bg-slate-50 dark:bg-[#070b13] border border-slate-200 dark:border-[#1e2740] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 font-sans" 
                           />
                         </div>
 
                         <div>
-                          <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block mb-1">Job Description</label>
+                          <label className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider block mb-1">Job Description</label>
                           <textarea 
                             value={optJd} 
                             onChange={(e) => setOptJd(e.target.value)} 
                             placeholder="Paste the job description here..." 
                             rows={5} 
-                            className="w-full bg-[#070b13] border border-[#1e2740] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 text-slate-200 resize-none font-sans" 
+                            className="w-full bg-slate-50 dark:bg-[#070b13] border border-slate-200 dark:border-[#1e2740] rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 resize-none font-sans" 
                           />
                         </div>
                       </div>
 
                       {optError && (
-                        <div className="mt-3 p-2 bg-red-500/10 border border-red-500/15 text-[11px] text-red-400 rounded-lg flex items-center gap-1.5">
+                        <div className="mt-3 p-2 bg-red-500/10 border border-red-500/15 text-[11px] text-red-500 dark:text-red-400 rounded-lg flex items-center gap-1.5">
                           <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                           <span>{optError}</span>
                         </div>
                       )}
 
                       {optSuccess && (
-                        <div className="mt-3 p-2 bg-emerald-500/10 border border-emerald-500/15 text-[11px] text-emerald-400 rounded-lg flex items-center gap-1.5">
+                        <div className="mt-3 p-2 bg-emerald-500/10 border border-emerald-500/15 text-[11px] text-emerald-600 dark:text-emerald-400 rounded-lg flex items-center gap-1.5">
                           <BadgeCheck className="w-3.5 h-3.5 shrink-0" />
                           <span>JD Scan completed. ATS metrics updated!</span>
                         </div>
@@ -641,10 +926,10 @@ export default function ParserSimulator({
             </div>
 
             {/* 4. Experience Timeline */}
-            <div className="rounded-2xl border border-[#1e2740] bg-[#0c1222]/30 p-6 flex flex-col gap-6">
-              <div className="flex items-center gap-2 pb-3 border-b border-[#1e2740]">
-                <BadgeCheck className="w-4.5 h-4.5 text-indigo-400" />
-                <h3 className="font-bold text-sm text-slate-200 uppercase tracking-wider">Experience</h3>
+            <div className="rounded-2xl border border-slate-200 dark:border-[#1e2740] bg-white dark:bg-[#0c1222]/30 p-6 flex flex-col gap-6 shadow-sm">
+              <div className="flex items-center gap-2 pb-3 border-b border-slate-200 dark:border-[#1e2740]">
+                <BadgeCheck className="w-4.5 h-4.5 text-indigo-500 dark:text-indigo-400" />
+                <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200 uppercase tracking-wider">Experience</h3>
               </div>
 
               {experiences.length > 0 ? (
@@ -652,21 +937,21 @@ export default function ParserSimulator({
                   {experiences.map((exp, idx) => (
                     <div key={idx} className="relative">
                       {/* Timeline Dot */}
-                      <div className="absolute -left-[33px] top-1.5 w-4 h-4 rounded-full bg-[#3b82f6] border-4 border-[#070b13] shadow-md shadow-blue-500/30" />
+                      <div className="absolute -left-[33px] top-1.5 w-4 h-4 rounded-full bg-[#3b82f6] border-4 border-white dark:border-[#070b13] shadow-md shadow-blue-500/30" />
                       
                       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1.5">
                         <div>
-                          <h4 className="text-base font-bold text-slate-200">{exp.title}</h4>
-                          <span className="text-xs font-bold text-indigo-400">{exp.company}</span>
+                          <h4 className="text-base font-bold text-slate-800 dark:text-slate-200">{exp.title}</h4>
+                          <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{exp.company}</span>
                         </div>
-                        <div className="text-left sm:text-right text-[11px] text-slate-500 font-semibold font-mono">
+                        <div className="text-left sm:text-right text-[11px] text-slate-500 dark:text-slate-400 font-semibold font-mono">
                           <div>{exp.dateRange}</div>
                           <div>{exp.location}</div>
                         </div>
                       </div>
 
                       {exp.description && (
-                        <p className="text-xs text-slate-400 mt-2.5 leading-relaxed font-normal">
+                        <p className="text-xs text-slate-600 dark:text-slate-400 mt-2.5 leading-relaxed font-normal">
                           {exp.description}
                         </p>
                       )}
@@ -674,9 +959,9 @@ export default function ParserSimulator({
                       {exp.bullets.length > 0 && (
                         <div className="mt-3.5 space-y-2.5">
                           {exp.bullets.map((bullet, bIdx) => (
-                            <div key={bIdx} className="flex items-start gap-2.5 text-xs text-slate-300">
-                              <span className="w-4 h-4 rounded-full bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center shrink-0 mt-0.5">
-                                <Check className="w-2.5 h-2.5 text-emerald-400" />
+                            <div key={bIdx} className="flex items-start gap-2.5 text-xs text-slate-700 dark:text-slate-300">
+                              <span className="w-4 h-4 rounded-full bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/20 dark:border-emerald-500/25 flex items-center justify-center shrink-0 mt-0.5">
+                                <Check className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" />
                               </span>
                               <span className="leading-relaxed font-normal">{bullet}</span>
                             </div>
@@ -693,26 +978,33 @@ export default function ParserSimulator({
 
             {/* 5. Projects Timeline */}
             {projects.length > 0 && (
-              <div className="rounded-2xl border border-[#1e2740] bg-[#0c1222]/30 p-6 flex flex-col gap-6">
-                <div className="flex items-center gap-2 pb-3 border-b border-[#1e2740]">
-                  <Layers className="w-4.5 h-4.5 text-indigo-400" />
-                  <h3 className="font-bold text-sm text-slate-200 uppercase tracking-wider">Projects</h3>
+              <div className="rounded-2xl border border-slate-200 dark:border-[#1e2740] bg-white dark:bg-[#0c1222]/30 p-6 flex flex-col gap-6 shadow-sm">
+                <div className="flex items-center gap-2 pb-3 border-b border-slate-200 dark:border-[#1e2740]">
+                  <Layers className="w-4.5 h-4.5 text-indigo-500 dark:text-indigo-400" />
+                  <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200 uppercase tracking-wider">Projects</h3>
                 </div>
 
                 <div className="relative border-l-2 border-indigo-500/40 ml-4 pl-6 space-y-8 text-left">
                   {projects.map((proj, idx) => (
                     <div key={idx} className="relative">
                       {/* Timeline Dot */}
-                      <div className="absolute -left-[33px] top-1.5 w-4 h-4 rounded-full bg-[#a855f7] border-4 border-[#070b13] shadow-md shadow-purple-500/30" />
+                      <div className="absolute -left-[33px] top-1.5 w-4 h-4 rounded-full bg-[#a855f7] border-4 border-white dark:border-[#070b13] shadow-md shadow-purple-500/30" />
                       
                       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1.5">
                         <div>
-                          <h4 className="text-base font-bold text-slate-200">{proj.name}</h4>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h4 className="text-base font-bold text-slate-800 dark:text-slate-200">{proj.name}</h4>
+                            {proj.techStack && (
+                              <span className="text-[11px] font-medium text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/20 px-2.5 py-0.5 rounded-full">
+                                {proj.techStack}
+                              </span>
+                            )}
+                          </div>
                           {proj.link && (
-                            <span className="text-xs font-semibold text-indigo-400 font-mono">{proj.link}</span>
+                            <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 font-mono mt-1 block">{proj.link}</span>
                           )}
                         </div>
-                        <div className="text-left sm:text-right text-[11px] text-slate-500 font-semibold font-mono">
+                        <div className="text-left sm:text-right text-[11px] text-slate-500 dark:text-slate-400 font-semibold font-mono shrink-0">
                           <div>{proj.date}</div>
                         </div>
                       </div>
@@ -720,9 +1012,9 @@ export default function ParserSimulator({
                       {proj.bullets.length > 0 && (
                         <div className="mt-3.5 space-y-2.5">
                           {proj.bullets.map((bullet, bIdx) => (
-                            <div key={bIdx} className="flex items-start gap-2.5 text-xs text-slate-300">
-                              <span className="w-4 h-4 rounded-full bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center shrink-0 mt-0.5">
-                                <Check className="w-2.5 h-2.5 text-emerald-400" />
+                            <div key={bIdx} className="flex items-start gap-2.5 text-xs text-slate-700 dark:text-slate-300">
+                              <span className="w-4 h-4 rounded-full bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/20 dark:border-emerald-500/25 flex items-center justify-center shrink-0 mt-0.5">
+                                <Check className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" />
                               </span>
                               <span className="leading-relaxed font-normal">{bullet}</span>
                             </div>
@@ -737,44 +1029,30 @@ export default function ParserSimulator({
 
             {/* 6. Education Section (neat cards for completion) */}
             {hasSectionData(extractedData.education) && (
-              <div className="rounded-2xl border border-[#1e2740] bg-[#0c1222]/30 p-6 flex flex-col gap-6">
-                <div className="flex items-center gap-2 pb-3 border-b border-[#1e2740]">
-                  <GraduationCap className="w-5 h-5 text-indigo-400" />
-                  <h3 className="font-bold text-sm text-slate-200 uppercase tracking-wider">Education</h3>
+              <div className="rounded-2xl border border-slate-200 dark:border-[#1e2740] bg-white dark:bg-[#0c1222]/30 p-6 flex flex-col gap-6 shadow-sm">
+                <div className="flex items-center gap-2 pb-3 border-b border-slate-200 dark:border-[#1e2740]">
+                  <GraduationCap className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
+                  <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200 uppercase tracking-wider">Education</h3>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
                   {(() => {
-                    const eduItems = [];
-                    const lines = extractedData.education;
+                    const eduItems = structureEducation(extractedData.education);
                     
-                    let startIndex = 0;
-                    if (lines[0] === "Year" || lines[0]?.toLowerCase().includes("degree")) {
-                      startIndex = 4;
-                    }
-
-                    for (let i = startIndex; i < lines.length; i += 4) {
-                      if (lines[i]) {
-                        eduItems.push({
-                          year: lines[i],
-                          degree: lines[i+1] || "",
-                          school: lines[i+2] || "",
-                          gpa: lines[i+3] || ""
-                        });
-                      }
-                    }
-
                     if (eduItems.length > 0) {
                       return eduItems.map((edu, idx) => (
-                        <div key={idx} className="p-4 rounded-xl bg-[#101626]/40 border border-[#1e2740] flex flex-col justify-between gap-1.5">
+                        <div key={idx} className="p-4 rounded-xl bg-slate-50 dark:bg-[#101626]/40 border border-slate-200 dark:border-[#1e2740] flex flex-col justify-between gap-2">
                           <div>
-                            <span className="text-[10px] text-indigo-400 font-mono font-bold">{edu.year}</span>
-                            <h4 className="text-sm font-bold text-slate-200 mt-1 leading-snug">{edu.degree}</h4>
-                            <p className="text-xs text-slate-400 mt-1">{edu.school}</p>
+                            <div className="flex justify-between items-center text-[10px] text-indigo-600 dark:text-indigo-400 font-mono font-bold">
+                              <span>{edu.year}</span>
+                              {edu.location && <span className="text-slate-500 dark:text-slate-400 font-sans">{edu.location}</span>}
+                            </div>
+                            <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 mt-1 leading-snug">{edu.degree}</h4>
+                            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">{edu.school}</p>
                           </div>
                           {edu.gpa && (
-                            <span className="text-[11px] font-bold text-emerald-400 mt-2 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded w-fit">
-                              CGPA / Grade: {edu.gpa}
+                            <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 mt-1 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded w-fit">
+                              Score / CGPA: {edu.gpa}
                             </span>
                           )}
                         </div>
@@ -782,8 +1060,8 @@ export default function ParserSimulator({
                     }
 
                     return (
-                      <div className="col-span-2 p-4 bg-[#101626]/40 border border-[#1e2740] rounded-xl font-mono text-xs text-slate-400 space-y-1">
-                        {lines.map((line, idx) => (
+                      <div className="col-span-2 p-4 bg-slate-50 dark:bg-[#101626]/40 border border-slate-200 dark:border-[#1e2740] rounded-xl font-mono text-xs text-slate-600 dark:text-slate-400 space-y-1">
+                        {extractedData.education.map((line, idx) => (
                           <div key={idx}>{line}</div>
                         ))}
                       </div>
@@ -798,30 +1076,30 @@ export default function ParserSimulator({
 
         {activeTab === 'raw' && (
           <div className="flex flex-col gap-3 text-left">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-amber-500/10 border border-amber-500/15 p-3 rounded-xl">
-              <p className="text-[11px] text-amber-400 max-w-lg leading-relaxed">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/15 p-3 rounded-xl">
+              <p className="text-[11px] text-amber-800 dark:text-amber-400 max-w-lg leading-relaxed">
                 This is the updated text representation of your resume, including any applied AI bullet updates. Look for garbled text or merged lines.
               </p>
               <div className="flex gap-2 shrink-0 self-end sm:self-center">
                 <button
                   onClick={handleCopyRawText}
-                  className="px-2.5 py-1.5 bg-indigo-500/10 hover:bg-indigo-500 hover:text-white border border-indigo-500/20 text-indigo-400 text-[10px] font-semibold rounded transition-all cursor-pointer flex items-center gap-1.5"
+                  className="px-2.5 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-500 hover:text-white border border-indigo-200 dark:border-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-[10px] font-semibold rounded transition-all cursor-pointer flex items-center gap-1.5"
                 >
                   {copiedRaw ? (
-                    <><Check className="w-3.5 h-3.5 text-emerald-400" /> Copied!</>
+                    <><Check className="w-3.5 h-3.5 text-emerald-500" /> Copied!</>
                   ) : (
                     <><Copy className="w-3.5 h-3.5" /> Copy All</>
                   )}
                 </button>
                 <button
                   onClick={handleDownloadRawText}
-                  className="px-2.5 py-1.5 bg-emerald-500/10 hover:bg-emerald-500 hover:text-white border border-emerald-500/20 text-emerald-400 text-[10px] font-semibold rounded transition-all cursor-pointer flex items-center gap-1.5"
+                  className="px-2.5 py-1.5 bg-emerald-50 dark:bg-emerald-500/10 hover:bg-emerald-500 hover:text-white border border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-semibold rounded transition-all cursor-pointer flex items-center gap-1.5"
                 >
                   <FileText className="w-3.5 h-3.5" /> Download TXT
                 </button>
               </div>
             </div>
-            <div className="bg-black/40 border border-[#1e2740] rounded-xl p-4 max-h-[450px] overflow-y-auto font-mono text-[11px] text-slate-500 leading-relaxed whitespace-pre-wrap select-all">
+            <div className="bg-slate-50 dark:bg-black/40 border border-slate-200 dark:border-[#1e2740] rounded-xl p-4 max-h-[450px] overflow-y-auto font-mono text-[11px] text-slate-700 dark:text-slate-400 leading-relaxed whitespace-pre-wrap select-all">
               {rawText || "No raw text extracted."}
             </div>
           </div>

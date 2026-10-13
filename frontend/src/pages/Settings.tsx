@@ -13,9 +13,13 @@ import {
   Clock, 
   KeyRound,
   Fingerprint,
-  CreditCard
+  CreditCard,
+  Sun,
+  Moon,
+  Palette
 } from 'lucide-react';
 import Plans from './Plans';
+import { useTheme } from '../context/ThemeContext';
 
 interface SettingsProps {
   backendUrl: string;
@@ -36,7 +40,18 @@ export default function Settings({
   onLogout,
   onAlert
 }: SettingsProps) {
+  const { theme, setTheme } = useTheme();
   const [activeSubTab, setActiveSubTab] = useState<'profile' | 'security' | 'plans' | 'danger'>('profile');
+
+  useEffect(() => {
+    const handleOpenSubtab = (e: any) => {
+      if (e.detail && ['profile', 'security', 'plans', 'danger'].includes(e.detail)) {
+        setActiveSubTab(e.detail);
+      }
+    };
+    window.addEventListener('resumeiq:open_settings_subtab', handleOpenSubtab);
+    return () => window.removeEventListener('resumeiq:open_settings_subtab', handleOpenSubtab);
+  }, []);
 
   
   // Profile settings state
@@ -86,6 +101,10 @@ export default function Settings({
         setTargetIndustry(data.target_industry);
         if (data.priorities) {
           setPriorities(data.priorities);
+        }
+        if (data.plan) {
+          localStorage.setItem("resumeiq_plan", data.plan);
+          window.dispatchEvent(new CustomEvent("resumeiq:plan_changed", { detail: data.plan }));
         }
       })
       .catch(err => {
@@ -415,6 +434,85 @@ export default function Settings({
               </div>
             </div>
 
+            {/* Appearance & Theme */}
+            <div className="glass-card p-6 flex flex-col gap-4">
+              <div className="flex items-center justify-between pb-3 border-b border-[#1e2740]">
+                <div className="flex items-center gap-2">
+                  <Palette className="w-4 h-4 text-indigo-400" />
+                  <h3 className="font-semibold text-sm text-slate-200">Appearance & Theme</h3>
+                </div>
+                <span className="text-[11px] font-medium text-slate-400">
+                  Active: <strong className="text-indigo-400 capitalize">{theme} Mode</strong>
+                </span>
+              </div>
+
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Choose between Day (Light) and Night (Dark) visual themes. Your preference is synchronized across all screens and remembered on this device.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-1">
+                {/* Day Theme Option */}
+                <div
+                  onClick={() => setTheme('light')}
+                  className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col gap-3 relative select-none ${
+                    theme === 'light'
+                      ? 'bg-amber-500/10 border-amber-400/80 shadow-md shadow-amber-500/10 ring-1 ring-amber-400/30'
+                      : 'bg-[#0f1525]/40 border-[#1e2740] hover:border-slate-600'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500">
+                        <Sun className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-slate-200 block">Day Mode</span>
+                        <span className="text-[10px] text-slate-500 block">Crisp, clean & luminous</span>
+                      </div>
+                    </div>
+                    {theme === 'light' && (
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
+                    )}
+                  </div>
+                  <div className="h-10 rounded-lg bg-slate-100 border border-slate-200 p-2 flex items-center gap-2">
+                    <div className="w-4 h-4 rounded bg-amber-500" />
+                    <div className="h-2 w-16 bg-slate-300 rounded" />
+                    <div className="h-2 w-8 bg-slate-200 rounded ml-auto" />
+                  </div>
+                </div>
+
+                {/* Night Theme Option */}
+                <div
+                  onClick={() => setTheme('dark')}
+                  className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col gap-3 relative select-none ${
+                    theme === 'dark'
+                      ? 'bg-indigo-500/10 border-indigo-500 shadow-md shadow-indigo-500/10 ring-1 ring-indigo-500/30'
+                      : 'bg-[#0f1525]/40 border-[#1e2740] hover:border-slate-600'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                        <Moon className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-slate-200 block">Night Mode</span>
+                        <span className="text-[10px] text-slate-500 block">Midnight dark with neon glow</span>
+                      </div>
+                    </div>
+                    {theme === 'dark' && (
+                      <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse" />
+                    )}
+                  </div>
+                  <div className="h-10 rounded-lg bg-[#080d1a] border border-[#1e2740] p-2 flex items-center gap-2">
+                    <div className="w-4 h-4 rounded bg-indigo-500" />
+                    <div className="h-2 w-16 bg-slate-700 rounded" />
+                    <div className="h-2 w-8 bg-slate-800 rounded ml-auto" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Analysis Focus */}
             <div className="glass-card p-6 flex flex-col gap-5">
               <div className="flex items-center gap-2 pb-3 border-b border-[#1e2740]">
@@ -640,6 +738,7 @@ export default function Settings({
           <div className="animate-fade-in">
             <Plans 
               token={token || 'mock-token'} 
+              backendUrl={backendUrl}
               onAlert={onAlert || ((msg) => alert(msg))} 
             />
           </div>
@@ -684,7 +783,7 @@ export default function Settings({
                     className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
                       deleteConfirm.toLowerCase() === "delete"
                         ? 'bg-red-500 hover:bg-red-600 text-white cursor-pointer'
-                        : 'bg-[#1e2740] text-slate-500 cursor-not-allowed'
+                        : 'bg-slate-100 dark:bg-[#1e2740] text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-transparent cursor-not-allowed shadow-none'
                     }`}
                   >
                     <Trash2 className="w-3.5 h-3.5" /> Purge Account

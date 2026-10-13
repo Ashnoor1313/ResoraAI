@@ -23,6 +23,7 @@ const BACKEND_URL = (import.meta.env.VITE_API_URL as string) ||
 export default function App() {
   const [token, setToken] = useState(() => localStorage.getItem("resumeiq_token") || "");
   const [userEmail, setUserEmail] = useState(() => localStorage.getItem("resumeiq_email") || "");
+  const [userPlan, setUserPlan] = useState<string>(() => localStorage.getItem("resumeiq_plan") || "Free");
   const [started, setStarted] = useState(() => !!localStorage.getItem("resumeiq_token"));
   const [activeTab, setActiveTab] = useState('overview');
   
@@ -86,6 +87,20 @@ export default function App() {
         window.history.replaceState({}, document.title, window.location.pathname);
       });
     }
+
+    const handleGlobalNav = (e: any) => {
+      if (e.detail) setActiveTab(e.detail);
+    };
+    const handlePlanChange = (e: any) => {
+      if (e.detail) setUserPlan(e.detail);
+      else setUserPlan(localStorage.getItem("resumeiq_plan") || "Free");
+    };
+    window.addEventListener('resumeiq:navigate', handleGlobalNav);
+    window.addEventListener('resumeiq:plan_changed', handlePlanChange);
+    return () => {
+      window.removeEventListener('resumeiq:navigate', handleGlobalNav);
+      window.removeEventListener('resumeiq:plan_changed', handlePlanChange);
+    };
   }, []);
 
   const handleLogout = async () => {
@@ -101,9 +116,31 @@ export default function App() {
     }
     setToken("");
     setUserEmail("");
+    setUserPlan("Free");
     localStorage.removeItem("resumeiq_token");
     localStorage.removeItem("resumeiq_email");
+    localStorage.removeItem("resumeiq_plan");
+    window.dispatchEvent(new CustomEvent("resumeiq:plan_changed", { detail: "Free" }));
     setStarted(false);
+  };
+
+  const syncUserProfile = async (authToken?: string) => {
+    const t = authToken || token;
+    if (!t || t === "mock-token" || t === "undefined") return;
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/v1/users/me`, {
+        headers: { 'Authorization': `Bearer ${t}` }
+      });
+      if (res.ok) {
+        const u = await res.json();
+        const p = u.plan || "Free";
+        setUserPlan(p);
+        localStorage.setItem("resumeiq_plan", p);
+        window.dispatchEvent(new CustomEvent("resumeiq:plan_changed", { detail: p }));
+      }
+    } catch (err) {
+      console.error("Failed to sync user profile/plan", err);
+    }
   };
 
   const fetchHistory = async () => {
@@ -122,14 +159,18 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (started && token) fetchHistory();
+    if (started && token) {
+      fetchHistory();
+      syncUserProfile(token);
+    }
   }, [started, token]);
 
-  const handleStart = (authToken: string, authEmail: string) => {
+  const handleStart = async (authToken: string, authEmail: string) => {
     setToken(authToken);
     setUserEmail(authEmail);
     localStorage.setItem("resumeiq_token", authToken);
     localStorage.setItem("resumeiq_email", authEmail);
+    await syncUserProfile(authToken);
     setStarted(true);
   };
 
@@ -354,13 +395,13 @@ export default function App() {
                       <div className="absolute top-[-30%] right-[-10%] w-32 h-32 bg-indigo-500/5 rounded-full blur-[40px] pointer-events-none" />
                       <div>
                         <div className="flex justify-between items-center mb-4">
-                          <span className="text-[11px] text-indigo-400 font-semibold tracking-wider uppercase">Active Report</span>
-                          <span className="px-2 py-0.5 bg-[#1e2740] border border-[#2e3b5e] rounded text-[10px] text-slate-300 font-mono">v{currentReport.version}</span>
+                          <span className="text-[11px] text-indigo-600 dark:text-indigo-400 font-semibold tracking-wider uppercase">Active Report</span>
+                          <span className="px-2 py-0.5 bg-slate-100 dark:bg-[#1e2740] border border-slate-200 dark:border-[#2e3b5e] rounded text-[10px] text-slate-700 dark:text-slate-300 font-mono">v{currentReport.version}</span>
                         </div>
-                        <h3 className="font-bold text-base text-white truncate max-w-sm mb-1 leading-snug">{currentReport.filename}</h3>
-                        <span className="text-[11px] text-slate-400 bg-slate-800/40 px-2.5 py-0.5 rounded-full border border-slate-700/30 w-fit block">{currentReport.target_role}</span>
+                        <h3 className="font-bold text-base text-slate-800 dark:text-white truncate max-w-sm mb-1 leading-snug">{currentReport.filename}</h3>
+                        <span className="text-[11px] text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/40 px-2.5 py-0.5 rounded-full border border-slate-200 dark:border-slate-700/30 w-fit block">{currentReport.target_role}</span>
                         
-                        <div className="grid grid-cols-3 gap-4 mt-6 border-t border-slate-800/60 pt-5">
+                        <div className="grid grid-cols-3 gap-4 mt-6 border-t border-slate-200 dark:border-slate-800/60 pt-5">
                           <div>
                             <span className="text-[10px] text-slate-500 font-medium block mb-1 uppercase tracking-wider">ATS Score</span>
                             <span className={`text-2xl font-extrabold tracking-tight ${scoreColor}`}>{scoreVal}%</span>
@@ -428,14 +469,12 @@ export default function App() {
                                   className="flex-1 text-left py-3 px-3.5 cursor-pointer min-w-0"
                                 >
                                   <span 
-                                    className="font-semibold text-xs block truncate leading-normal" 
-                                    style={{ color: '#ffffff' }}
+                                    className="font-semibold text-xs block truncate leading-normal text-white" 
                                   >
                                     {h.filename || 'Untitled Scan'}
                                   </span>
                                   <span 
-                                    className="text-[10px] block truncate leading-normal mt-1" 
-                                    style={{ color: '#94a3b8' }}
+                                    className="text-[10px] block truncate leading-normal mt-1 text-slate-400" 
                                   >
                                     v{h.version} · {h.target_role || 'General Track'}
                                   </span>
@@ -506,6 +545,7 @@ export default function App() {
         return (
           <Applications 
             token={token}
+            backendUrl={BACKEND_URL}
           />
         );
 
@@ -590,6 +630,7 @@ export default function App() {
         currentTab={activeTab} 
         onTabChange={setActiveTab}
         userEmail={userEmail}
+        currentPlan={userPlan}
         onLogout={handleLogout}
       >
         {renderTabContent()}

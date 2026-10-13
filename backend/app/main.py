@@ -12,7 +12,7 @@ import hmac
 import hashlib
 import uuid
 import secrets
-from typing import List, Optional
+from typing import List, Optional, Dict, Any, Union
 from concurrent.futures import ThreadPoolExecutor
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form, status, Request
 from fastapi.responses import RedirectResponse
@@ -26,7 +26,7 @@ import requests
 from app.core.config import settings
 from app.db.database import engine, Base, get_db
 from app.db import models
-from app.services import parser, formatting, scoring, semantic, gemini_service, benchmarking, knowledge_graph, skill_engine, analysis, recommendation, company_engine, rdom_service, reconstruction_service
+from app.services import parser, formatting, scoring, semantic, gemini_service, benchmarking, knowledge_graph, skill_engine, analysis, recommendation, company_engine, rdom_service, reconstruction_service, linkedin_scraper
 
 # Auto-create SQLite/PostgreSQL database tables on startup
 Base.metadata.create_all(bind=engine)
@@ -38,7 +38,14 @@ try:
     
     # 1. Migrate users table
     columns_users = [c["name"] for c in inspector.get_columns("users")]
-    for col, col_type in [("password_hash", "VARCHAR"), ("career_level", "VARCHAR DEFAULT 'entry'"), ("target_industry", "VARCHAR DEFAULT 'tech'"), ("priorities", "JSON")]:
+    for col, col_type in [
+        ("password_hash", "VARCHAR"), 
+        ("career_level", "VARCHAR DEFAULT 'entry'"), 
+        ("target_industry", "VARCHAR DEFAULT 'tech'"), 
+        ("priorities", "JSON"),
+        ("plan", "VARCHAR DEFAULT 'Free'"),
+        ("plan_updated_at", "TIMESTAMP")
+    ]:
         if col not in columns_users:
             with engine.begin() as conn:
                 conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {col_type}"))
@@ -415,6 +422,7 @@ def signup(payload: AuthRequest, request: Request, db: Session = Depends(get_db)
         id=user_id, 
         email=email_clean, 
         password_hash=hashed,
+        plan="Free",
         priorities={"ats": True, "keywords": True, "star": True, "readability": False}
     )
     db.add(new_user)
@@ -446,7 +454,34 @@ def get_me(current_user: models.User = Depends(get_current_user)):
         "created_at": current_user.created_at,
         "career_level": current_user.career_level or "entry",
         "target_industry": current_user.target_industry or "tech",
-        "priorities": current_user.priorities or {"ats": True, "keywords": True, "star": True, "readability": False}
+        "priorities": current_user.priorities or {"ats": True, "keywords": True, "star": True, "readability": False},
+        "plan": getattr(current_user, "plan", "Free") or "Free",
+        "plan_updated_at": getattr(current_user, "plan_updated_at", None)
+    }
+
+class PlanUpdateRequest(BaseModel):
+    plan: str
+
+@app.put("/api/v1/users/me/plan")
+def update_user_plan(
+    payload: PlanUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    valid_plans = ["Free", "Pro", "Enterprise"]
+    target_plan = payload.plan.strip().capitalize()
+    if target_plan not in valid_plans:
+        raise HTTPException(status_code=400, detail=f"Invalid plan. Must be one of {valid_plans}.")
+        
+    current_user.plan = target_plan
+    current_user.plan_updated_at = datetime.datetime.utcnow()
+    db.commit()
+    db.refresh(current_user)
+    return {
+        "status": "success", 
+        "message": f"Successfully updated subscription to {current_user.plan} plan.",
+        "plan": current_user.plan,
+        "plan_updated_at": current_user.plan_updated_at
     }
 
 @app.put("/api/v1/users/me/profile")
@@ -986,6 +1021,37 @@ def match_job_description_endpoint(
     # Scrape skills from extracted text
     skills = latest_report.extracted_data.get("skills", [])
     
+    # If empty or whitespace JD is passed, clear the JD match
+    if not payload.job_description or not payload.job_description.strip():
+        jd_analysis = {
+            "resume_keywords": skills,
+            "jd_keywords": [],
+            "matching_keywords": [],
+            "missing_keywords": [],
+            "semantic_matches": [],
+            "jd_similarity_score": 0.0
+        }
+        scoring_report = scoring.calculate_resume_health(
+            analysis_results=latest_report.analysis_results,
+            keyword_alignment_score=None,
+            raw_text=resume.extracted_text
+        )
+        latest_report.score_overall = scoring_report["score_overall"]
+        latest_report.score_breakdown = scoring_report["breakdown"]
+        latest_report.keyword_analysis = jd_analysis
+        benchmarks = benchmarking.calculate_benchmarks(latest_report.score_overall, latest_report.target_role)
+        latest_report.benchmarking_percentile = benchmarks["global_percentile"]
+        db.commit()
+        db.refresh(latest_report)
+        return {
+            "resume_id": resume.id,
+            "report_id": latest_report.id,
+            "score_overall": latest_report.score_overall,
+            "score_breakdown": latest_report.score_breakdown,
+            "keyword_analysis": latest_report.keyword_analysis,
+            "benchmarking": benchmarks
+        }
+
     # Run JD match calculations
     jd_match = semantic.match_job_description(resume.extracted_text, skills, payload.job_description)
     
@@ -1018,6 +1084,54 @@ def match_job_description_endpoint(
     db.commit()
     db.refresh(latest_report)
     
+    return {
+        "resume_id": resume.id,
+        "report_id": latest_report.id,
+        "score_overall": latest_report.score_overall,
+        "score_breakdown": latest_report.score_breakdown,
+        "keyword_analysis": latest_report.keyword_analysis,
+        "benchmarking": benchmarks
+    }
+
+@app.delete("/api/v1/resumes/{resume_id}/clear-jd")
+def clear_resume_jd_endpoint(
+    resume_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Resets any previously matched Job Description, clearing JD keywords and similarity score."""
+    resume = db.query(models.Resume).filter(
+        models.Resume.id == resume_id,
+        models.Resume.user_id == current_user.id
+    ).first()
+    if not resume:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Resume not found.")
+        
+    latest_report = db.query(models.ScanReport).filter(models.ScanReport.resume_id == resume_id).first()
+    if not latest_report:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found.")
+
+    skills = latest_report.extracted_data.get("skills", []) if latest_report.extracted_data else []
+    jd_analysis = {
+        "resume_keywords": skills,
+        "jd_keywords": [],
+        "matching_keywords": [],
+        "missing_keywords": [],
+        "semantic_matches": [],
+        "jd_similarity_score": 0.0
+    }
+    scoring_report = scoring.calculate_resume_health(
+        analysis_results=latest_report.analysis_results,
+        keyword_alignment_score=None,
+        raw_text=resume.extracted_text
+    )
+    latest_report.score_overall = scoring_report["score_overall"]
+    latest_report.score_breakdown = scoring_report["breakdown"]
+    latest_report.keyword_analysis = jd_analysis
+    benchmarks = benchmarking.calculate_benchmarks(latest_report.score_overall, latest_report.target_role)
+    latest_report.benchmarking_percentile = benchmarks["global_percentile"]
+    db.commit()
+    db.refresh(latest_report)
     return {
         "resume_id": resume.id,
         "report_id": latest_report.id,
@@ -1280,9 +1394,23 @@ def update_resume_bullet(
 
 # TOOL ENDPOINTS - EXPANDED CAPABILITIES
 class LinkedinAuditRequest(BaseModel):
-    profile_text: str
-    target_role: str
-    target_industry: str
+    profile_text: Optional[str] = None
+    profile_url: Optional[str] = None
+    linkedin_url: Optional[str] = None
+    url: Optional[str] = None
+    headline: Optional[str] = None
+    about: Optional[str] = None
+    experience: Optional[List[Any]] = None
+    target_role: Optional[str] = "Software Engineer"
+    target_industry: Optional[str] = "Technology"
+    resume_id: Optional[int] = None
+
+class LinkedinProfileScrapeRequest(BaseModel):
+    url: Optional[str] = None
+    profile_url: Optional[str] = None
+    target_role: Optional[str] = "Software Engineer"
+    target_industry: Optional[str] = "Technology"
+
 
 class CoverLetterRequest(BaseModel):
     resume_id: int
@@ -1291,16 +1419,27 @@ class CoverLetterRequest(BaseModel):
     tone: str
 
 class OutreachRequest(BaseModel):
-    resume_id: int
+    resume_id: Optional[int] = None
     company_name: str
-    target_role: str
-    recipient_type: str
-    tone: str
+    target_role: Optional[str] = None
+    role: Optional[str] = None
+    recipient_type: Optional[str] = None
+    recipient_persona: Optional[str] = None
+    tone: Optional[str] = "Professional"
+    recipient_name: Optional[str] = None
+    job_context: Optional[str] = None
 
 class InterviewPrepRequest(BaseModel):
     resume_id: int
     target_role: str
     company_name: Optional[str] = "Google"
+
+class InterviewEvaluationRequest(BaseModel):
+    question: str
+    user_answer: str
+    target_role: str
+    company_name: str
+    resume_bullet: Optional[str] = None
 
 class ChatRequest(BaseModel):
     resume_id: Optional[int] = None
@@ -1309,18 +1448,312 @@ class ChatRequest(BaseModel):
 
 
 
+class LinkedinScrapeRequest(BaseModel):
+    url: Optional[str] = None
+    job_url: Optional[str] = None
+    resume_id: Optional[int] = None
+    apply_to_resume: Optional[bool] = False
+
+@app.post("/api/v1/linkedin/scrape-job")
+def scrape_linkedin_job_endpoint(
+    payload: LinkedinScrapeRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Scrapes a LinkedIn job description from a public URL or Job ID,
+    extracts key technical & soft skills, and compares against the candidate's resume.
+    """
+    raw_url = payload.url or payload.job_url
+    if not raw_url or not raw_url.strip():
+        raise HTTPException(status_code=400, detail="LinkedIn Job URL or text cannot be empty.")
+    
+    try:
+        job_data = linkedin_scraper.scrape_linkedin_job(raw_url.strip())
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to scrape LinkedIn job: {str(e)}")
+        
+    cand_skills = None
+    cand_text = None
+    resume = None
+    latest_report = None
+    
+    if payload.resume_id:
+        resume = db.query(models.Resume).filter(
+            models.Resume.id == payload.resume_id,
+            models.Resume.user_id == current_user.id
+        ).first()
+        if resume:
+            latest_report = db.query(models.ScanReport).filter(models.ScanReport.resume_id == resume.id).first()
+            if latest_report and latest_report.extracted_data:
+                cand_skills = latest_report.extracted_data.get("skills", [])
+            cand_text = resume.extracted_text
+
+    enriched = linkedin_scraper.process_scraped_job_with_intelligence(
+        job_data=job_data,
+        resume_skills=cand_skills,
+        resume_text=cand_text
+    )
+
+    if payload.apply_to_resume and resume and latest_report:
+        jd_match = enriched.get("match_analysis", {})
+        if jd_match:
+            skills = cand_skills or []
+            all_missing = jd_match.get("missing_keywords", [])
+            all_matching = jd_match.get("matching_keywords", [])
+            jd_analysis = {
+                "resume_keywords": skills,
+                "jd_keywords": all_matching + all_missing,
+                "matching_keywords": all_matching,
+                "missing_keywords": all_missing,
+                "semantic_matches": jd_match.get("semantic_matches", []),
+                "jd_similarity_score": jd_match.get("match_score", 0)
+            }
+            scoring_report = scoring.calculate_resume_health(
+                analysis_results=latest_report.analysis_results,
+                keyword_alignment_score=jd_match.get("match_score", 0),
+                raw_text=resume.extracted_text
+            )
+            latest_report.score_overall = scoring_report["score_overall"]
+            latest_report.score_breakdown = scoring_report["breakdown"]
+            latest_report.keyword_analysis = jd_analysis
+            
+            benchmarks = benchmarking.calculate_benchmarks(latest_report.score_overall, latest_report.target_role)
+            latest_report.benchmarking_percentile = benchmarks["global_percentile"]
+            
+            db.commit()
+            db.refresh(latest_report)
+            enriched["updated_report"] = {
+                "resume_id": resume.id,
+                "report_id": latest_report.id,
+                "score_overall": latest_report.score_overall,
+                "score_breakdown": latest_report.score_breakdown,
+                "keyword_analysis": latest_report.keyword_analysis,
+                "benchmarking": benchmarks
+            }
+
+    return enriched
+
+@app.post("/api/v1/linkedin/scrape-profile")
+def scrape_linkedin_profile_endpoint(
+    payload: LinkedinProfileScrapeRequest,
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Scrapes or simulates a public LinkedIn profile from URL or handle,
+    returning structured profile info, headline, about section, experiences, and extracted skills.
+    """
+    target_url = (payload.url or payload.profile_url or "").strip()
+    if not target_url:
+        raise HTTPException(status_code=400, detail="LinkedIn Profile URL or handle cannot be empty.")
+    try:
+        profile_data = linkedin_scraper.scrape_linkedin_profile(
+            url_or_handle=target_url,
+            target_role=payload.target_role or "Software Engineer",
+            target_industry=payload.target_industry or "Technology"
+        )
+        p_info = profile_data.get("profile_info", {})
+        return {
+            **profile_data,
+            "name": p_info.get("full_name"),
+            "headline": p_info.get("headline"),
+            "about": p_info.get("about"),
+            "experience": p_info.get("experience", []),
+            "skills": profile_data.get("extracted_skills", p_info.get("skills", [])),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to scrape LinkedIn profile: {str(e)}")
+
+
 @app.post("/api/v1/tools/linkedin-audit")
 def linkedin_audit_endpoint(
     payload: LinkedinAuditRequest,
+    db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    if not payload.profile_text.strip():
-        raise HTTPException(status_code=400, detail="LinkedIn profile text cannot be empty.")
-    return gemini_service.audit_linkedin_profile(
-        profile_text=payload.profile_text,
-        target_role=payload.target_role,
-        target_industry=payload.target_industry
+    """
+    Audits candidate LinkedIn profile from either a direct LinkedIn URL/handle or pasted text.
+    Provides completeness scoring, headline alternatives, summary rewrites, 
+    role keyword gap matrices, and cross-platform resume consistency alignment.
+    """
+    cand_skills = None
+    if payload.resume_id:
+        resume = db.query(models.Resume).filter(
+            models.Resume.id == payload.resume_id,
+            models.Resume.user_id == current_user.id
+        ).first()
+        if resume:
+            latest_report = db.query(models.ScanReport).filter(models.ScanReport.resume_id == resume.id).first()
+            if latest_report and latest_report.extracted_data:
+                cand_skills = latest_report.extracted_data.get("skills", [])
+
+    role = payload.target_role or "Software Engineer"
+    industry = payload.target_industry or "Technology"
+
+    # Detect if user provided a profile URL directly or in the profile_text field
+    url_candidate = (payload.profile_url or payload.linkedin_url or payload.url or "").strip()
+    if not url_candidate and payload.profile_text and (
+        "linkedin.com/in/" in payload.profile_text or 
+        payload.profile_text.strip().startswith(("http://", "https://", "www.linkedin", "@"))
+    ):
+        url_candidate = payload.profile_text.strip().split()[0]
+
+    if url_candidate:
+        try:
+            profile_data = linkedin_scraper.scrape_linkedin_profile(
+                url_or_handle=url_candidate,
+                target_role=role,
+                target_industry=industry
+            )
+            return linkedin_scraper.audit_scraped_linkedin_profile(
+                profile_data=profile_data,
+                target_role=role,
+                target_industry=industry,
+                resume_skills=cand_skills
+            )
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Failed to audit LinkedIn profile URL: {str(e)}")
+
+    if not payload.profile_text or not payload.profile_text.strip():
+        raise HTTPException(status_code=400, detail="LinkedIn profile URL or profile text cannot be empty.")
+
+    manual_profile_data = {
+        "profile_info": {
+            "username": "custom_profile",
+            "full_name": payload.profile_text.strip().split("\n")[0][:50] or "Candidate Profile",
+            "headline": "Professional Profile",
+            "location": "Custom Profile",
+            "current_company": "Organization",
+            "about": payload.profile_text[:300],
+            "profile_url": "",
+            "experience": [],
+            "education": [],
+            "skills": parser.extract_skills_from_text(payload.profile_text),
+            "avatar_initials": "LI",
+            "source": "manual_paste"
+        },
+        "raw_text": payload.profile_text,
+        "extracted_skills": parser.extract_skills_from_text(payload.profile_text),
+        "categorized_skills": linkedin_scraper.categorize_skills(parser.extract_skills_from_text(payload.profile_text))
+    }
+
+    return linkedin_scraper.audit_scraped_linkedin_profile(
+        profile_data=manual_profile_data,
+        target_role=role,
+        target_industry=industry,
+        resume_skills=cand_skills
     )
+
+class JobApplicationCreate(BaseModel):
+    title: str
+    company: str
+    salary: Optional[str] = "N/A"
+    location: Optional[str] = "Remote"
+    status: Optional[str] = "applied"
+    date: Optional[str] = None
+    link: Optional[str] = ""
+    notes: Optional[str] = ""
+    match_score: Optional[float] = None
+    skills: Optional[List[str]] = []
+
+class JobApplicationUpdate(BaseModel):
+    title: Optional[str] = None
+    company: Optional[str] = None
+    salary: Optional[str] = None
+    location: Optional[str] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
+    match_score: Optional[float] = None
+
+@app.get("/api/v1/applications")
+def list_applications_endpoint(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Retrieves all tracked job applications for the logged-in candidate."""
+    apps = db.query(models.JobApplication).filter(
+        models.JobApplication.user_id == current_user.id
+    ).order_by(models.JobApplication.created_at.desc()).all()
+    return apps
+
+@app.post("/api/v1/applications")
+def create_application_endpoint(
+    payload: JobApplicationCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Saves a new job application into the user's tracking pipeline."""
+    import uuid
+    import datetime as dt
+    app_record = models.JobApplication(
+        id=str(uuid.uuid4()),
+        user_id=current_user.id,
+        title=payload.title,
+        company=payload.company,
+        salary=payload.salary or "N/A",
+        location=payload.location or "Remote",
+        status=payload.status or "applied",
+        date=payload.date or dt.date.today().isoformat(),
+        link=payload.link or "",
+        notes=payload.notes or "",
+        match_score=payload.match_score,
+        skills=payload.skills or []
+    )
+    db.add(app_record)
+    db.commit()
+    db.refresh(app_record)
+    return app_record
+
+@app.put("/api/v1/applications/{app_id}")
+def update_application_endpoint(
+    app_id: str,
+    payload: JobApplicationUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Updates an application status, notes, salary, or details."""
+    app_record = db.query(models.JobApplication).filter(
+        models.JobApplication.id == app_id,
+        models.JobApplication.user_id == current_user.id
+    ).first()
+    if not app_record:
+        raise HTTPException(status_code=404, detail="Application not found.")
+    
+    if payload.status is not None:
+        app_record.status = payload.status
+    if payload.notes is not None:
+        app_record.notes = payload.notes
+    if payload.salary is not None:
+        app_record.salary = payload.salary
+    if payload.location is not None:
+        app_record.location = payload.location
+    if payload.title is not None:
+        app_record.title = payload.title
+    if payload.company is not None:
+        app_record.company = payload.company
+    if payload.match_score is not None:
+        app_record.match_score = payload.match_score
+        
+    db.commit()
+    db.refresh(app_record)
+    return app_record
+
+@app.delete("/api/v1/applications/{app_id}")
+def delete_application_endpoint(
+    app_id: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Removes an application from the tracking pipeline."""
+    app_record = db.query(models.JobApplication).filter(
+        models.JobApplication.id == app_id,
+        models.JobApplication.user_id == current_user.id
+    ).first()
+    if not app_record:
+        raise HTTPException(status_code=404, detail="Application not found.")
+    db.delete(app_record)
+    db.commit()
+    return {"status": "success", "deleted_id": app_id}
 
 
 @app.post("/api/v1/tools/cover-letter")
@@ -1349,18 +1782,24 @@ def networking_outreach_endpoint(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    resume = db.query(models.Resume).filter(
-        models.Resume.id == payload.resume_id,
-        models.Resume.user_id == current_user.id
-    ).first()
-    if not resume:
-        raise HTTPException(status_code=404, detail="Resume not found.")
+    resume = None
+    if payload.resume_id:
+        resume = db.query(models.Resume).filter(
+            models.Resume.id == payload.resume_id,
+            models.Resume.user_id == current_user.id
+        ).first()
+        
+    resume_text = resume.extracted_text if resume else "Experienced developer with strong expertise in full stack software engineering, scalable APIs, databases, and modern cloud deployment."
+    target_role = payload.target_role or payload.role or "Software Engineer"
+    recipient_type = payload.recipient_type or payload.recipient_persona or "Recruiter"
     return gemini_service.generate_networking_outreach(
-        resume_text=resume.extracted_text,
+        resume_text=resume_text,
         company_name=payload.company_name,
-        target_role=payload.target_role,
-        recipient_type=payload.recipient_type,
-        tone=payload.tone
+        target_role=target_role,
+        recipient_type=recipient_type,
+        tone=payload.tone or "Professional",
+        job_context=payload.job_context,
+        recipient_name=payload.recipient_name
     )
 
 
@@ -1375,11 +1814,30 @@ def interview_prep_endpoint(
         models.Resume.user_id == current_user.id
     ).first()
     if not resume:
-        raise HTTPException(status_code=404, detail="Resume not found.")
+        resume = db.query(models.Resume).filter(
+            models.Resume.user_id == current_user.id
+        ).order_by(models.Resume.created_at.desc()).first()
+
+    extracted_text = resume.extracted_text if resume else ""
     return gemini_service.generate_interview_prep(
-        resume_text=resume.extracted_text,
+        resume_text=extracted_text,
         target_role=payload.target_role,
-        company_name=payload.company_name
+        company_name=payload.company_name or "Google"
+    )
+
+@app.post("/api/v1/tools/interview-evaluate")
+def interview_evaluate_endpoint(
+    payload: InterviewEvaluationRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Evaluates an interview response using the STAR rubric with company-specific feedback."""
+    return gemini_service.evaluate_interview_answer(
+        question=payload.question,
+        user_answer=payload.user_answer,
+        target_role=payload.target_role,
+        company_name=payload.company_name,
+        resume_bullet=payload.resume_bullet
     )
 
 
@@ -1482,32 +1940,45 @@ def get_resume_reconstruction(
     # Ensure RDOM is generated (backward compatibility)
     if not resume.rdom:
         try:
-            with open(resume.file_path, "rb") as f:
-                file_bytes = f.read()
-            resume.rdom = rdom_service.parse_to_rdom(file_bytes, resume.filename)
+            if resume.file_path and os.path.exists(resume.file_path):
+                with open(resume.file_path, "rb") as f:
+                    file_bytes = f.read()
+                resume.rdom = rdom_service.parse_to_rdom(file_bytes, resume.filename)
+            elif resume.extracted_text:
+                resume.rdom = rdom_service.parse_text_to_rdom(resume.extracted_text)
+            else:
+                resume.rdom = {"pages": [], "metadata": {"format": "empty"}}
             db.commit()
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to generate RDOM: {str(e)}"
-            )
+        except Exception:
+            if resume.extracted_text:
+                resume.rdom = rdom_service.parse_text_to_rdom(resume.extracted_text)
+                db.commit()
+            else:
+                resume.rdom = {"pages": [], "metadata": {"format": "fallback"}}
             
     # Ensure suggestions exist
     if not report.suggestions:
         try:
+            target_role = report.target_role or "Software Engineer"
+            jd_text = ""
+            if report.keyword_analysis and isinstance(report.keyword_analysis, dict):
+                jd_text = str(report.keyword_analysis.get("target_jd_text", ""))
             report.suggestions = rdom_service.generate_reconstruction_suggestions(
-                resume.rdom, report.target_role, report.keyword_analysis.get("jd_similarity_score", 0.0)
+                resume.rdom, target_role, jd_text
             )
             db.commit()
-        except Exception:
+        except Exception as e:
+            print(f"Error generating reconstruction suggestions: {e}")
             report.suggestions = []
             
     validation = reconstruction_service.validate_reconstructed_rdom(resume.rdom)
     
     return {
         "resume_id": resume.id,
+        "filename": resume.filename,
+        "target_role": report.target_role,
         "rdom": resume.rdom,
-        "suggestions": report.suggestions,
+        "suggestions": report.suggestions or [],
         "validation_report": validation
     }
 
@@ -1535,32 +2006,47 @@ def rebuild_resume_pdf(
         
     if not resume.rdom:
         try:
-            with open(resume.file_path, "rb") as f:
-                file_bytes = f.read()
-            resume.rdom = rdom_service.parse_to_rdom(file_bytes, resume.filename)
+            if resume.file_path and os.path.exists(resume.file_path):
+                with open(resume.file_path, "rb") as f:
+                    file_bytes = f.read()
+                resume.rdom = rdom_service.parse_to_rdom(file_bytes, resume.filename)
+            elif resume.extracted_text:
+                resume.rdom = rdom_service.parse_text_to_rdom(resume.extracted_text)
+            else:
+                resume.rdom = {"pages": [], "metadata": {"format": "empty"}}
             db.commit()
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to generate RDOM: {str(e)}"
-            )
+        except Exception:
+            if resume.extracted_text:
+                resume.rdom = rdom_service.parse_text_to_rdom(resume.extracted_text)
+                db.commit()
+            else:
+                resume.rdom = {"pages": [], "metadata": {"format": "fallback"}}
             
     try:
         # Rebuild RDOM with modifications
         rebuilt_rdom = reconstruction_service.rebuild_rdom(resume.rdom, payload.approved_changes)
         
         # Compile PDF bytes
-        pdf_data = reconstruction_service.render_rdom_to_pdf_bytes(rebuilt_rdom, resume.file_path)
+        source_path = resume.file_path if (resume.file_path and os.path.exists(resume.file_path)) else None
+        pdf_data = reconstruction_service.render_rdom_to_pdf_bytes(rebuilt_rdom, source_path)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error compiling reconstructed PDF: {str(e)}"
         )
         
+    out_filename = resume.filename or "resume.pdf"
+    if not out_filename.lower().endswith(".pdf"):
+        out_filename = f"{os.path.splitext(out_filename)[0]}.pdf"
+    clean_out_name = f"reconstructed_{out_filename}"
+
     return StreamingResponse(
         io.BytesIO(pdf_data),
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=reconstructed_{resume.filename}"}
+        headers={
+            "Content-Disposition": f'attachment; filename="{clean_out_name}"',
+            "Access-Control-Expose-Headers": "Content-Disposition"
+        }
     )
 
 # Serve frontend SPA built files in production if dist folder is present

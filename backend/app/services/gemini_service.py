@@ -828,94 +828,197 @@ def generate_cover_letter(resume_text: str, job_description: str, target_role: s
         return get_sandbox_cover_letter(resume_text, job_description, target_role, tone)
 
 
-def get_sandbox_networking_outreach(resume_text: str, company_name: str, target_role: str, recipient_type: str, tone: str) -> Dict[str, Any]:
-    """Generates a realistic offline simulated outreach template list."""
+def get_sandbox_networking_outreach(
+    resume_text: str, 
+    company_name: str, 
+    target_role: str, 
+    recipient_type: str, 
+    tone: str,
+    job_context: Optional[str] = None,
+    recipient_name: Optional[str] = None
+) -> Dict[str, Any]:
+    """Generates a realistic offline simulated outreach template suite with InMail and Follow-ups."""
     name_match = re.search(r'([A-Z][a-z]+ [A-Z][a-z]+)', resume_text[:150])
     name = name_match.group(1) if name_match else "Candidate"
+    recip = recipient_name.strip() if recipient_name and recipient_name.strip() else f"[{recipient_type}]"
     
     email_subject = f"Inquiry: {target_role} roles at {company_name} - {name}"
     
     if "recruiter" in recipient_type.lower():
-        email_body = f"""Hi [Recruiter Name],
+        email_body = f"""Hi {recip},
 
-I hope this email finds you well. 
+I hope this email finds you well.
 
-My name is {name}, and I am a software developer specializing in building scalable web applications. I’ve been following {company_name}'s recent work, particularly in cloud engineering, and I am very interested in current or future {target_role} opportunities on your team.
+My name is {name}, and I am a software engineer specializing in building scalable distributed systems and resilient web applications. I’ve been following {company_name}'s technical momentum and am very interested in current or upcoming {target_role} opportunities on your team.
 
-I have a strong background in optimizing backend pipelines and design structures. I’ve attached my resume for your review and would love the opportunity to connect for a brief chat to see if my experience aligns with any upcoming hiring needs.
+In my recent projects, I focused on high-throughput API architecture and database query optimization, reducing latency benchmarks by over 30%. I’ve attached my resume for your review and would love the chance to connect for a quick 5-minute chat to see if my background matches your current hiring priorities.
 
-Thanks so much,
+Thank you for your time,
 {name}"""
         
-        linkedin_message = f"Hi [Recruiter Name], I hope you're having a great week! I'm a developer focusing on scalable web platforms and I'm very interested in {target_role} roles at {company_name}. I'd love to connect and keep in touch regarding future opportunities. Thanks, {name}!"
-        psychology = "Focuses on recruiter utility: briefly summarizes core skills, expresses clear interest, and offers a low-friction call-to-action (attaching resume/connecting)."
+        linkedin_message = f"Hi {recip}, hope you're having a great week! I'm a developer focusing on scalable web platforms and very interested in {target_role} roles at {company_name}. I'd love to connect and keep in touch regarding future engineering openings. Best, {name}!"
+        
+        linkedin_inmail = f"""Hi {recip},
+
+I noticed you manage technical talent acquisition for engineering teams at {company_name}. I'm reaching out because my technical background aligns directly with your {target_role} requirements.
+
+Key highlights from my recent engineering work:
+• Architected scalable microservices handling high concurrency with PostgreSQL & Redis caching.
+• Automated CI/CD deployment pipelines using Docker and Kubernetes, reducing build cycles significantly.
+
+I'd welcome the chance to share my portfolio and explore whether my skill set could add immediate value to your current engineering initiatives.
+
+Best regards,
+{name}"""
+
+        follow_up = f"""Hi {recip},
+
+Following up on my previous message regarding the {target_role} role at {company_name}. I know your inbox is busy, but I wanted to reiterate my strong enthusiasm for your engineering culture.
+
+Please feel free to take a look at my attached resume when you have a moment. Happy to chat whenever convenient!
+
+Best,
+{name}"""
+
+        psychology = "Focuses on recruiter utility: summarizes core capabilities, highlights quantifiable impact, and offers low-friction calls-to-action (reviewing resume / connecting)."
         
     elif "manager" in recipient_type.lower():
-        email_body = f"""Hi [Manager Name],
+        email_body = f"""Hi {recip},
 
-I hope your week is going well.
+I hope your week is off to a great start.
 
-I’m {name}, a developer with experience building responsive interfaces and high-performance APIs. I saw that your engineering team at {company_name} focuses on modern cloud systems, and I wanted to reach out.
+I’m {name}, an engineer with practical experience designing distributed APIs and performant user interfaces. I saw that your engineering group at {company_name} is actively scaling core infrastructure, and I wanted to reach out directly.
 
-I recently designed a FastAPI and React dashboard that helped optimize network latencies, and I am keen to apply similar engineering depth to your team's current projects. If you have 5 minutes, I'd love to learn about how your team scales microservices and see if my background could be a fit.
+I recently architected a microservices pipeline using Python, PostgreSQL, and Redis that significantly optimized latency under load. Given your team's technical focus, I’d love to share insights from that build and learn how your engineers tackle current scaling challenges.
+
+If you have 10 minutes next week, I’d be honored to connect!
 
 Best regards,
 {name}"""
         
-        linkedin_message = f"Hi [Manager Name], I saw your team at {company_name} works on cloud systems. I'm a developer specializing in scalable API design and database indexing. I'd love to connect to discuss how you scale engineering teams and keep an eye on upcoming openings. Cheers, {name}!"
-        psychology = "Focuses on technical value: mentions specific technical achievements relevant to an engineering manager, showing immediate capability and peer-level alignment."
+        linkedin_message = f"Hi {recip}, I saw your engineering team at {company_name} is scaling distributed services. I specialize in backend API architecture and high-throughput databases. Would love to connect and follow your team's updates. Best, {name}!"
         
-    else: # Peer / Alum
+        linkedin_inmail = f"""Hi {recip},
+
+I've been following your team's technical updates at {company_name}. As an engineer who works deeply with modern web architectures, distributed caching, and containerized cloud services, I wanted to reach out directly.
+
+I recently resolved a major bottleneck in a distributed API cluster, boosting throughput by 38%. I'm eager to bring that same problem-solving discipline to the {target_role} position at {company_name}.
+
+If you have a quick moment, I'd value the chance to discuss your architectural roadmap and see if my experience could be of service.
+
+Best regards,
+{name}"""
+
+        follow_up = f"""Hi {recip},
+
+Just wanted to float this back to the top of your inbox. I'd love to chat briefly about how your team approaches system scalability at {company_name}.
+
+Hope you're having a productive week!
+
+Best,
+{name}"""
+
+        psychology = "Focuses on peer-level technical respect: references concrete system challenges and architectural problem-solving that directly interest engineering managers."
+        
+    else: # Peer / Alumni
         email_subject = f"Connecting with a fellow developer - {name}"
-        email_body = f"""Hi [Alum Name],
+        email_body = f"""Hi {recip},
 
-I hope you're doing well!
+I hope you're having a wonderful week!
 
-My name is {name}, and I'm a developer looking to transition into roles similar to yours at {company_name}. I saw on LinkedIn that you've been working there as an engineer, and I'd love to get your perspective on the team culture.
+My name is {name}, and I'm an engineer passionate about distributed web development. I came across your profile and noticed you're working as an engineer at {company_name}.
 
-If you have 10 minutes to spare sometime, I'd love to ask a few questions about your journey and what skills {company_name} values most. I appreciate any insights you can share!
+I’m currently exploring {target_role} opportunities at {company_name} and would love to hear your first-hand perspective on the developer culture and technical stack. If you have 10 minutes for a virtual coffee chat, I'd deeply appreciate your insights!
 
 Warmly,
 {name}"""
         
-        linkedin_message = f"Hi [Alum Name], I saw we share a passion for backend engineering. I'm currently looking at developer roles at {company_name} and would love to connect to learn about your journey and the engineering culture. Thanks, {name}!"
-        psychology = "Builds rapport: focuses on information gathering and advice seeking rather than demanding a referral, establishing a warm networking channel."
+        linkedin_message = f"Hi {recip}, saw your engineering work at {company_name}! I share a passion for modern software architectures and would love to connect with fellow builders in the community. Best, {name}!"
+        
+        linkedin_inmail = f"""Hi {recip},
+
+Hope you're having a great week! I noticed your career progression at {company_name} and admire how your engineering team approaches scalable software design.
+
+I'm currently preparing for {target_role} positions and would love to get your honest perspective on what makes engineers thrive at {company_name}. If you have a few minutes for a quick chat, I'd love to connect!
+
+Warm regards,
+{name}"""
+
+        follow_up = f"""Hi {recip},
+
+Hope all is well with you! Just checking in to see if you might have a few minutes next week for a brief conversation about {company_name}'s engineering environment. No worries if you're swamped!
+
+Cheers,
+{name}"""
+
+        psychology = "Focuses on relationship building: avoids asking for instant referrals and instead seeks advice and shared passion, fostering authentic networking rapport."
+
+    # Ensure strictly <= 300 chars for linkedin_message
+    if len(linkedin_message) > 300:
+        linkedin_message = linkedin_message[:295].rsplit(" ", 1)[0] + "..."
 
     return {
         "email_subject": email_subject,
         "email_body": email_body,
         "linkedin_message": linkedin_message,
-        "psychology_tip": psychology
+        "linkedin_inmail": linkedin_inmail,
+        "follow_up_message": follow_up,
+        "psychology_tip": psychology,
+        "hook_highlight": f"High-impact systems experience aligned with {company_name}'s {target_role} requirements",
+        "char_count": {
+            "linkedin_note": len(linkedin_message),
+            "inmail": len(linkedin_inmail)
+        },
+        "connection_note_300": linkedin_message,
+        "inmail": {"subject": f"InMail: {target_role} at {company_name}", "body": linkedin_inmail},
+        "cold_email": {"subject": email_subject, "body": email_body},
+        "day_5_followup": follow_up
     }
 
 
-def generate_networking_outreach(resume_text: str, company_name: str, target_role: str, recipient_type: str, tone: str) -> Dict[str, Any]:
-    """Generates outreach cold emails and LinkedIn connection templates using Gemini, falling back to mock sandbox."""
+def generate_networking_outreach(
+    resume_text: str, 
+    company_name: str, 
+    target_role: str, 
+    recipient_type: str, 
+    tone: str,
+    job_context: Optional[str] = None,
+    recipient_name: Optional[str] = None
+) -> Dict[str, Any]:
+    """Generates complete networking outreach suite (Email, Connection Note, InMail, Follow-up) using Gemini."""
     client = get_gemini_client()
     condensed_resume = get_condensed_resume_context(resume_text)
     if not client:
-        return get_sandbox_networking_outreach(resume_text, company_name, target_role, recipient_type, tone)
+        return get_sandbox_networking_outreach(resume_text, company_name, target_role, recipient_type, tone, job_context, recipient_name)
         
+    recip = recipient_name.strip() if recipient_name and recipient_name.strip() else f"[{recipient_type}]"
+    context_str = f"\nSpecific Job Context/Skills:\n{job_context}" if job_context else ""
+
     prompt = f"""
-    You are an expert in networking strategy and career outreach. 
-    Write a cold email and a LinkedIn connection request on behalf of a candidate targeting {company_name} as a {target_role}.
-    The recipient is a: {recipient_type} (Recruiter, Hiring Manager, or Peer/Alumni).
-    The tone should be: {tone} (Professional or Friendly).
+    You are an elite networking and executive career outreach strategist. 
+    Write a complete cold outreach communication package on behalf of a candidate targeting {company_name} for the position of {target_role}.
+    The recipient is: {recipient_type} ({recip}).
+    The tone must be: {tone}.{context_str}
     
     Candidate's Resume Highlights:
     {condensed_resume}
     
-    Requirements:
-    1. The Email template must have a clear Subject Line and Body.
-    2. The LinkedIn message MUST be strictly under 300 characters (including spaces) for LinkedIn's connection note limit.
-    3. Include a "psychology_tip" explaining why this structure works for this type of recipient.
+    Generate all 4 tailored communication formats:
+    1. Cold Email: Highly compelling Subject Line and clean, personalized Body.
+    2. LinkedIn Connection Note: MUST be strictly under 300 characters total (including spaces and punctuation).
+    3. LinkedIn InMail Pitch: A high-converting 600-800 character message highlighting 2 key quantified accomplishments from the candidate's resume that match {company_name}.
+    4. Follow-up Message: A polite, high-EQ follow-up note to send 5 days after no response.
+    5. Psychology Tip: A strategic explanation of why this messaging structure resonates with a {recipient_type}.
     
-    Return a valid JSON object matching this schema:
+    Return a valid JSON object matching this exact schema:
     {{
       "email_subject": "string",
       "email_body": "string",
-      "linkedin_message": "string (MUST be < 300 chars)",
-      "psychology_tip": "string"
+      "linkedin_message": "string (MUST be <= 300 chars)",
+      "linkedin_inmail": "string",
+      "follow_up_message": "string",
+      "psychology_tip": "string",
+      "hook_highlight": "string"
     }}
     Do not output markdown code fences. Return raw JSON text only.
     """
@@ -929,10 +1032,24 @@ def generate_networking_outreach(resume_text: str, company_name: str, target_rol
                 temperature=0.3
             )
         )
-        return json.loads(response.text)
+        data = json.loads(response.text)
+        # Verify length constraint
+        msg = data.get("linkedin_message", "")
+        if len(msg) > 300:
+            data["linkedin_message"] = msg[:295].rsplit(" ", 1)[0] + "..."
+        data["char_count"] = {
+            "linkedin_note": len(data.get("linkedin_message", "")),
+            "inmail": len(data.get("linkedin_inmail", ""))
+        }
+        data["connection_note_300"] = data.get("linkedin_message", "")
+        data["inmail"] = {"subject": f"InMail: {target_role} at {company_name}", "body": data.get("linkedin_inmail", "")}
+        data["cold_email"] = {"subject": data.get("email_subject", ""), "body": data.get("email_body", "")}
+        data["day_5_followup"] = data.get("follow_up_message", "")
+        return data
     except Exception as e:
         print(f"Gemini API Error in outreach generation: {e}. Falling back to sandbox.")
-        return get_sandbox_networking_outreach(resume_text, company_name, target_role, recipient_type, tone)
+        return get_sandbox_networking_outreach(resume_text, company_name, target_role, recipient_type, tone, job_context, recipient_name)
+
 
 
 def get_sandbox_interview_prep(resume_text: str, target_role: str, company_name: str) -> Dict[str, Any]:
@@ -1122,5 +1239,153 @@ def chat_with_copilot(resume_text: str, message: str, target_role: str) -> Dict[
     except Exception as e:
         print(f"Gemini API Error in chat copilot: {e}. Falling back to sandbox.")
         return get_sandbox_chat_response(message, target_role)
+
+
+def analyze_filler_words(text: str) -> List[Dict[str, Any]]:
+    """Identifies common verbal crutches and filler phrases in the response."""
+    lower_text = text.lower()
+    detected = []
+    fillers = ["um", "uh", "like", "you know", "basically", "actually", "literally", "sort of", "kind of", "i mean", "right"]
+    for fw in fillers:
+        pattern = r'\b' + re.escape(fw) + r'\b'
+        matches = len(re.findall(pattern, lower_text))
+        if matches > 0:
+            detected.append({"word": fw, "count": matches})
+    return detected
+
+
+def evaluate_interview_answer(
+    question: str,
+    user_answer: str,
+    target_role: str,
+    company_name: str,
+    resume_bullet: Optional[str] = None
+) -> Dict[str, Any]:
+    """Evaluates an interview response against the STAR method and company culture expectations."""
+    filler_words = analyze_filler_words(user_answer)
+    word_count = len(user_answer.split())
+    
+    client = get_gemini_client()
+    if not client:
+        return get_sandbox_interview_evaluation(question, user_answer, target_role, company_name, filler_words)
+        
+    prompt = f"""
+    You are a Principal Technical Recruiter and Hiring Manager evaluating a candidate's verbal response to an interview question.
+    
+    Target Role: {target_role}
+    Company: {company_name}
+    Interview Question: "{question}"
+    Candidate's Resume Reference (Context): "{resume_bullet or 'N/A'}"
+    Candidate's Practice Answer:
+    "{user_answer}"
+    
+    Evaluate the response thoroughly using the STAR method (Situation, Task, Action, Result).
+    
+    Provide:
+    1. An overall score (0 - 100).
+    2. STAR Dimension breakdown scores (0 - 100) and specific 1-2 sentence feedback for each:
+       - Situation: How well was the context/problem set up?
+       - Task: Was the candidate's exact responsibility clear?
+       - Action: Did they emphasize personal ownership with strong verbs ("I built", "I spearheaded" vs passive "we did")?
+       - Result: Did they quantify the business outcome with metrics, latency, revenue, or team impact?
+    3. 2-3 specific Strengths.
+    4. 2-3 specific Actionable Improvements.
+    5. A Refined Exemplar Answer: A polished, high-impact version of what the candidate said that sounds natural, confident, and persuasive.
+    
+    Return a valid JSON object matching this schema:
+    {{
+      "overall_score": integer (0 to 100),
+      "verdict": "string ('Strong Hire', 'Hire', 'Borderline', 'Needs Improvement')",
+      "star_ratings": {{
+        "situation": {{"score": integer, "feedback": "string"}},
+        "task": {{"score": integer, "feedback": "string"}},
+        "action": {{"score": integer, "feedback": "string"}},
+        "result": {{"score": integer, "feedback": "string"}}
+      }},
+      "strengths": ["string", "string"],
+      "improvements": ["string", "string"],
+      "refined_answer": "string",
+      "pacing_feedback": "string"
+    }}
+    
+    Do not output markdown code fences. Return raw JSON text only.
+    """
+    try:
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                temperature=0.3
+            )
+        )
+        res_data = json.loads(response.text)
+        res_data["filler_words"] = filler_words
+        res_data["word_count"] = word_count
+        return res_data
+    except Exception as e:
+        print(f"Gemini API Error in answer evaluation: {e}. Falling back to sandbox.")
+        return get_sandbox_interview_evaluation(question, user_answer, target_role, company_name, filler_words)
+
+
+def get_sandbox_interview_evaluation(
+    question: str,
+    user_answer: str,
+    target_role: str,
+    company_name: str,
+    filler_words: List[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """Generates realistic STAR scoring heuristics for offline sandbox testing."""
+    words = user_answer.split()
+    word_count = len(words)
+    
+    has_metrics = bool(re.search(r'\d+|%|\$|saved|reduced|increased|optimized', user_answer, re.I))
+    has_first_person = bool(re.search(r'\b(i|my|me)\b', user_answer, re.I))
+    
+    sit_score = 88 if word_count > 30 else 72
+    task_score = 85 if "goal" in user_answer.lower() or "responsible" in user_answer.lower() or word_count > 40 else 74
+    act_score = 92 if has_first_person and word_count > 50 else 78
+    res_score = 90 if has_metrics else 70
+    
+    overall = int((sit_score * 0.2) + (task_score * 0.2) + (act_score * 0.3) + (res_score * 0.3))
+    verdict = "Strong Hire" if overall >= 85 else "Hire" if overall >= 75 else "Borderline" if overall >= 65 else "Needs Improvement"
+    
+    strengths = [
+        f"Directly addressed the core scenario required for {company_name}.",
+        "Demonstrated technical context and proactive engineering judgment."
+    ]
+    if has_metrics:
+        strengths.append("Included quantifiable outcomes which hiring managers look for.")
+        
+    improvements = [
+        "Frame the initial Situation concisely in 1-2 sentences to maximize time for your Action steps.",
+        "Highlight personal contributions using active ownership verbs like 'Architected' or 'Spearheaded'."
+    ]
+    if not has_metrics:
+        improvements.append("Quantify the end result (e.g. latency reduced by X%, users impacted, or team hours saved).")
+        
+    refined = (
+        f"At my previous role, our team faced a critical scalability challenge with our microservices. "
+        f"As the primary engineer for our {target_role} scope, I spearheaded the refactoring of our data pipeline "
+        f"and implemented asynchronous caching with Redis. This eliminated our bottleneck, boosted query throughput by 42%, "
+        f"and ensured zero downtime during peak traffic."
+    )
+    
+    return {
+        "overall_score": overall,
+        "verdict": verdict,
+        "star_ratings": {
+            "situation": {"score": sit_score, "feedback": "Good context setup without over-explaining background details."},
+            "task": {"score": task_score, "feedback": "Identified the primary challenge and business expectations."},
+            "action": {"score": act_score, "feedback": "Strong personal ownership verbs emphasizing direct technical contributions."},
+            "result": {"score": res_score, "feedback": "Outcome is stated clearly; adding verified percentage metrics will maximize impact."}
+        },
+        "strengths": strengths,
+        "improvements": improvements,
+        "refined_answer": refined,
+        "pacing_feedback": f"Response length is {word_count} words (~{max(1, word_count // 130)} min speaking time). Optimal range is 120-220 words.",
+        "filler_words": filler_words,
+        "word_count": word_count
+    }
 
 

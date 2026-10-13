@@ -22,16 +22,20 @@ def calculate_resume_health(
     Computes Resume Health across 8 key dimensions with detailed explainability logs
     for every category, showing severities, warnings, and expected improvements.
     """
+    if not analysis_results or not isinstance(analysis_results, dict):
+        analysis_results = {}
+        
+    structure_info = analysis_results.get("structure", {})
+    sections = structure_info.get("sections_detected", {"experience": True, "education": True, "skills": True})
     
     # 1. ATS Compatibility (15%)
-    sections = analysis_results["structure"]["sections_detected"]
-    ats_score = sum(1 for v in sections.values() if v) / len(sections) * 100
+    ats_score = sum(1 for v in sections.values() if v) / max(1, len(sections)) * 100
     ats_issues = []
-    if not sections["experience"]:
+    if not sections.get("experience", True):
         ats_issues.append("Experience section missing")
-    if not sections["education"]:
+    if not sections.get("education", True):
         ats_issues.append("Education section missing")
-    if not sections["skills"]:
+    if not sections.get("skills", True):
         ats_issues.append("Skills section missing")
         
     ats_explain = {
@@ -44,26 +48,28 @@ def calculate_resume_health(
     }
 
     # 2. Recruiter Readability (15%)
-    readability = analysis_results["readability"]
+    readability = analysis_results.get("readability", {"word_count_status": "good", "avg_sentence_length": 14.0, "long_paragraphs": 0})
     read_score = 100.0
     read_issues = []
-    if readability["word_count_status"] == "too_short":
+    if readability.get("word_count_status") == "too_short":
         read_score -= 25.0
         read_issues.append("Resume contains too few words (<300 words)")
-    elif readability["word_count_status"] == "too_long":
+    elif readability.get("word_count_status") == "too_long":
         read_score -= 20.0
         read_issues.append("Resume exceeds recommended length (>1000 words)")
         
-    if readability["avg_sentence_length"] > 24.0:
+    avg_sent = readability.get("avg_sentence_length", 14.0)
+    if avg_sent > 24.0:
         read_score -= 15.0
         read_issues.append("Average sentence length is too long (>24 words)")
-    elif readability["avg_sentence_length"] < 8.0:
+    elif avg_sent < 8.0:
         read_score -= 10.0
         read_issues.append("Very short sentence fragments detected")
         
-    if readability["long_paragraphs"] > 0:
-        read_score -= min(20.0, readability["long_paragraphs"] * 5.0)
-        read_issues.append(f"Found {readability['long_paragraphs']} overly long paragraph blocks")
+    long_p = readability.get("long_paragraphs", 0)
+    if long_p > 0:
+        read_score -= min(20.0, long_p * 5.0)
+        read_issues.append(f"Found {long_p} overly long paragraph blocks")
         
     read_score = max(40.0, read_score)
     read_explain = {
@@ -76,7 +82,7 @@ def calculate_resume_health(
     }
 
     # 3. Formatting Safety (10%)
-    formatting = analysis_results["formatting"]
+    formatting = analysis_results.get("formatting", {})
     format_score = 100.0
     format_issues = []
     if formatting.get("multiple_columns"):
@@ -100,21 +106,23 @@ def calculate_resume_health(
     }
 
     # 4. Technical Quality (15%)
-    skills_data = analysis_results["skills"]
+    skills_data = analysis_results.get("skills", {"count": 12, "duplicates": []})
     tech_score = 70.0
     tech_issues = []
-    if skills_data["count"] < 8:
+    s_count = skills_data.get("count", 12)
+    s_dups = skills_data.get("duplicates", [])
+    if s_count < 8:
         tech_score -= 20.0
         tech_issues.append("Very low skills count (<8 skills listed)")
-    elif skills_data["count"] > 30:
+    elif s_count > 30:
         tech_score -= 10.0
         tech_issues.append("High skills volume listed (can look unfocused)")
         
-    if skills_data["duplicates"]:
+    if s_dups:
         tech_score -= 15.0
         tech_issues.append("Identical technical skills listed multiple times")
         
-    tech_score = max(50.0, min(100.0, tech_score + min(30.0, skills_data["count"] * 1.5)))
+    tech_score = max(50.0, min(100.0, tech_score + min(30.0, s_count * 1.5)))
     tech_explain = {
         "score": int(round(tech_score)),
         "why": "Audits list depth, technical skill counts, and duplicate entries to ensure structural focus.",
@@ -125,21 +133,25 @@ def calculate_resume_health(
     }
 
     # 5. Achievement Quality (15%)
-    achievements = analysis_results["achievements"]
+    achievements = analysis_results.get("achievements", {"total_bullets": 5, "quantification_rate": 60, "star_compliance_rate": 70, "weak_bullets_found": 0})
     ach_score = 40.0
     ach_issues = []
-    if achievements["total_bullets"] == 0:
+    t_bullets = achievements.get("total_bullets", 5)
+    if t_bullets == 0:
         ach_issues.append("No bullets found in experience or projects")
     else:
-        ach_score += min(30.0, achievements["quantification_rate"] * 0.6)
-        ach_score += min(30.0, achievements["star_compliance_rate"] * 0.6)
+        q_rate = achievements.get("quantification_rate", 60)
+        s_rate = achievements.get("star_compliance_rate", 70)
+        w_found = achievements.get("weak_bullets_found", 0)
+        ach_score += min(30.0, q_rate * 0.6)
+        ach_score += min(30.0, s_rate * 0.6)
         
-        if achievements["quantification_rate"] < 30:
+        if q_rate < 30:
             ach_issues.append("Less than 30% of achievements contain numerical metric values")
-        if achievements["star_compliance_rate"] < 25:
+        if s_rate < 25:
             ach_issues.append("Low adherence to structural STAR/XYZ results framing")
-        if achievements["weak_bullets_found"] > 0:
-            ach_issues.append(f"Detected {achievements['weak_bullets_found']} bullets with passive wording")
+        if w_found > 0:
+            ach_issues.append(f"Detected {w_found} bullets with passive wording")
             
     ach_score = max(40.0, min(100.0, ach_score))
     ach_explain = {
@@ -167,14 +179,14 @@ def calculate_resume_health(
     }
 
     # 7. Resume Completeness (10%)
-    contact = analysis_results["contact_info"]
+    contact = analysis_results.get("contact_info", {"valid_email": True, "has_linkedin": True, "has_github": True})
     comp_fields = [
-        contact["valid_email"],
-        contact["has_linkedin"],
-        contact["has_github"],
-        sections["education"],
-        sections["experience"],
-        sections["skills"]
+        contact.get("valid_email", True),
+        contact.get("has_linkedin", True),
+        contact.get("has_github", True),
+        sections.get("education", True),
+        sections.get("experience", True),
+        sections.get("skills", True)
     ]
     comp_score = (sum(1 for v in comp_fields if v) / len(comp_fields)) * 100
     comp_issues = []
